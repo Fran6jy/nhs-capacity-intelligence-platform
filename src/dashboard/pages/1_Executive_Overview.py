@@ -9,6 +9,7 @@ import streamlit as st
 from src.config import settings
 from src.dashboard.components.kpi_card import kpi_card
 from src.dashboard.components.risk_badge import risk_badge
+from src.dashboard.components.stream_panel import render_stream_panel
 
 
 @st.cache_resource
@@ -69,4 +70,7 @@ def render() -> None:
     st.subheader("Top 10 at-risk trusts")
     top = con.execute("SELECT * FROM v_top_risk_trusts").fetch_df()
     st.dataframe(top, use_container_width=True, hide_index=True)
-    con.close()
+
+    st.divider()
+    render_stream_panel()
+    # NB: `con` is a cached_resource shared across reruns — do not close it here.
