@@ -1,0 +1,47 @@
+name: Refresh data
+
+# Rebuilds the medallion gold warehouse, re-seeds the live A&E stream, and
+# publishes everything into Supabase — every 2 hours. The API and frontend read
+# Supabase live, so no redeploy is needed; the data simply stays current.
+#
+# Required repository secret:
+#   DATABASE_URL  — Supabase IPv4 session-pooler URI (URL-encode the password)
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # every 2 hours (UTC)
+  workflow_dispatch:
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Refresh warehouse → stream → Supabase
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RECOMMENDER_USE_LLM: "false"   # keep the batch deterministic + fast (no LLM calls)
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret not set — add it in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          python scripts/run_pipeline.py
+          python scripts/run_stream_sim.py --events 5000 --rate 3000 --spread-minutes 45
+          python scripts/publish_to_postgres.py
+          echo "### ✅ Data refreshed and published to Supabase at $(date -u)" >> "$GITHUB_STEP_SUMMARY"
