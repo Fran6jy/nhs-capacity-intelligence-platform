@@ -5,6 +5,20 @@ import react from "@vitejs/plugin-react";
 // origin (no CORS friction). Override the backend target with VITE_API_TARGET.
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Split large vendors into their own cacheable chunks (keeps each
+        // chunk under the 500 kB warning threshold).
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          charts: ["recharts"],
+          motion: ["framer-motion"],
+          query: ["@tanstack/react-query"],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
