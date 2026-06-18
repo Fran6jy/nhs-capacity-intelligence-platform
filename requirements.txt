@@ -9,7 +9,7 @@ pyarrow==15.0.0
 duckdb==0.10.3
 
 # ML / forecasting
-prophet==1.1.5
+prophet>=1.1.6           # 1.1.5 has the 'Prophet has no attribute stan_backend' regression
 xgboost==2.0.3
 lightgbm==4.3.0
 scikit-learn==1.5.0
