@@ -93,10 +93,15 @@ nhs-capacity-platform/
 │   │   ├── silver.py
 │   │   ├── gold.py
 │   │   └── features.py
-│   ├── warehouse/                    # star schema
-│   │   ├── schema.sql
-│   │   ├── duckdb_client.py
-│   │   └── seed.py
+│   ├── db.py                         # SQLAlchemy/PostgreSQL data layer
+│   ├── api/                          # FastAPI backend (serves from Postgres)
+│   │   ├── main.py
+│   │   └── schemas.py
+│   ├── streaming/                    # real-time A&E ingestion (Kafka / in-memory)
+│   │   ├── events.py
+│   │   ├── bus.py
+│   │   ├── producer.py
+│   │   └── consumer.py
 │   ├── models/                       # ML
 │   │   ├── bed_occupancy.py
 │   │   ├── waiting_time.py
@@ -111,7 +116,7 @@ nhs-capacity-platform/
 │   │   ├── agents.py
 │   │   ├── recommender.py
 │   │   └── prompts.py
-│   ├── dashboard/                    # Streamlit
+│   ├── dashboard/                    # Streamlit (legacy analyst UI)
 │   │   ├── app.py
 │   │   ├── pages/
 │   │   │   ├── 1_Executive_Overview.py
@@ -143,21 +148,27 @@ nhs-capacity-platform/
 │   ├── test_pipeline.py
 │   ├── test_models.py
 │   ├── test_risk.py
-│   └── test_rag.py
+│   ├── test_rag.py
+│   └── test_streaming.py
+│
+├── frontend/                         # React + TypeScript + Tailwind SPA
+│   └── src/{pages,components,lib}
 │
 ├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
+│   ├── Dockerfile                    # Streamlit image (legacy)
+│   └── Dockerfile.api                # FastAPI image
+├── docker-compose.yml                # Postgres + API + frontend
+├── render.yaml                       # API deploy (Render)
 │
 ├── scripts/
-│   ├── run_pipeline.py               # end-to-end runner
-│   ├── train_models.py
-│   ├── seed_warehouse.py
-│   └── launch_streamlit.sh
+│   ├── run_pipeline.py               # end-to-end pipeline runner
+│   ├── publish_to_postgres.py        # load gold → PostgreSQL
+│   └── run_stream_sim.py             # streaming simulation
 │
 └── .github/
     └── workflows/
-        └── ci.yml
+        ├── ci.yml
+        └── deploy.yml
 ```
 
 ---

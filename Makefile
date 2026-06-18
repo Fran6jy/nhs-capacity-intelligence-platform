@@ -1,31 +1,30 @@
-.PHONY: install seed bronze silver gold train risk run test lint
+.PHONY: install pipeline publish stream api web test lint
 
 install:
 	pip install -r requirements.txt
 
-seed:
-	python scripts/seed_warehouse.py
+# Build the medallion gold warehouse (bronze→silver→gold→train→risk→recommend)
+pipeline:
+	python scripts/run_pipeline.py
 
-bronze:
-	python -m src.pipeline.bronze
+# Publish the gold warehouse into PostgreSQL (set DATABASE_URL first)
+publish:
+	python scripts/publish_to_postgres.py
 
-silver:
-	python -m src.pipeline.silver
+# Real-time A&E ingestion simulation
+stream:
+	python scripts/run_stream_sim.py
 
-gold:
-	python -m src.pipeline.gold
+# FastAPI backend (serves the React frontend + Power BI from Postgres)
+api:
+	uvicorn src.api.main:app --reload
 
-train:
-	python scripts/train_models.py
-
-risk:
-	python -m src.risk.risk_engine
-
-run:
-	streamlit run src/dashboard/app.py
+# React + Tailwind frontend (dev server, proxies /api → :8000)
+web:
+	cd frontend && npm install && npm run dev
 
 test:
-	pytest tests/ -v
+	pytest tests/
 
 lint:
 	ruff check src/ tests/
