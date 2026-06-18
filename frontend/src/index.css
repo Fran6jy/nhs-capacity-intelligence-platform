@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ink-900 text-slate-200 font-sans antialiased;
+  margin: 0;
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(0, 114, 206, 0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 20%, rgba(0, 194, 209, 0.12), transparent 55%);
+}
+
+/* Glassmorphism surface */
+.glass {
+  @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-card;
+}
+
+.glass-hover {
+  @apply transition-all duration-300 hover:border-nhs-cyan/40 hover:bg-white/[0.06] hover:shadow-glow;
+}
+
+/* Thin scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/20;
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-nhs-cyan via-sky-300 to-nhs-blue;
+}

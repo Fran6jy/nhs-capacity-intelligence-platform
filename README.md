@@ -186,7 +186,10 @@ python scripts/publish_to_postgres.py
 # 3b. Run the FastAPI backend (serves the React frontend + Power BI from Postgres)
 uvicorn src.api.main:app --reload          # http://localhost:8000/docs
 
-# 3c. Launch the analyst dashboard (Streamlit; optional alongside the API)
+# 3c. Launch the React + Tailwind frontend (immersive enterprise UI)
+cd frontend && npm install && npm run dev      # http://localhost:5173 (proxies /api -> :8000)
+
+# 3d. (Optional) the legacy Streamlit analyst dashboard
 streamlit run src/dashboard/app.py
 
 # 4. (Optional) Real-time A&E ingestion — batch simulation or live Kafka
