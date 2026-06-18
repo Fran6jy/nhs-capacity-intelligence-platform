@@ -30,6 +30,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="NHS A&E streaming simulation")
     ap.add_argument("--events", type=int, default=3000)
     ap.add_argument("--rate", type=float, default=500.0, help="events/sec")
+    ap.add_argument("--spread-minutes", type=int, default=0,
+                    help="distribute timestamps across the last N minutes (seed a per-minute curve)")
     args = ap.parse_args()
 
     log.info("stream_sim.start", events=args.events, rate=args.rate)
@@ -42,7 +44,8 @@ def main() -> int:
 
     t = threading.Thread(target=_consume, daemon=True)
     t.start()
-    produced = run_producer(n_events=args.events, rate_per_sec=args.rate)
+    produced = run_producer(n_events=args.events, rate_per_sec=args.rate,
+                            spread_minutes=args.spread_minutes)
     t.join(timeout=30)
 
     con = duckdb.connect(str(settings.warehouse_path), read_only=True)

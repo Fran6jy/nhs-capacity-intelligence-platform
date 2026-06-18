@@ -11,6 +11,7 @@ import { BedDouble, Clock, Stethoscope, TriangleAlert, Users2 } from "lucide-rea
 import { useKpis, usePressure, useRiskDistribution, useRiskTop } from "../lib/api";
 import { AnimatedNumber, GlassCard, RiskPill, SectionTitle, Skeleton } from "../components/ui";
 import { chartTooltip } from "../components/chart";
+import StreamPanel from "../components/StreamPanel";
 
 function Kpi({
   icon: Icon,
@@ -158,6 +159,10 @@ export default function Overview() {
           </table>
         </div>
       </GlassCard>
+
+      <div className="mt-6">
+        <StreamPanel />
+      </div>
     </div>
   );
 }

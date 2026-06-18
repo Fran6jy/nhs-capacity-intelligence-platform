@@ -67,6 +67,17 @@ export interface Recommendation {
   action: string;
   expected_impact: string | null;
 }
+export interface StreamMinute {
+  minute_ts: string;
+  attendances: number;
+  ambulance: number;
+  breach_risk: number;
+}
+export interface StreamAe {
+  available: boolean;
+  minutes: StreamMinute[];
+  totals: { attendances: number; ambulance: number; breach_risk: number };
+}
 export interface AskResponse {
   question: string;
   answer: string;
@@ -87,6 +98,8 @@ export const useForecasts = (target: string, horizon: number) =>
   useQuery({ queryKey: ["forecasts", target, horizon], queryFn: () => get<ForecastRow[]>(`/api/forecasts?target=${target}&horizon=${horizon}`) });
 export const useWorkforce = () => useQuery({ queryKey: ["workforce"], queryFn: () => get<WorkforceRow[]>("/api/workforce") });
 export const useRecommendations = () => useQuery({ queryKey: ["recs"], queryFn: () => get<Recommendation[]>("/api/recommendations") });
+export const useStreamAe = () =>
+  useQuery({ queryKey: ["stream-ae"], queryFn: () => get<StreamAe>("/api/stream/ae"), refetchInterval: 15_000 });
 
 export const useAsk = () =>
   useMutation({
