@@ -59,6 +59,23 @@ class _AnthropicLLM:
         return _EchoResponse("".join(b.text for b in resp.content if b.type == "text"))
 
 
+class _OpenAICompatLLM:
+    """Adapter over any OpenAI-compatible Chat Completions endpoint (OpenAI,
+    OpenRouter, local gateways). Exposes the same `.invoke(messages)` API."""
+
+    def __init__(self, client, model: str) -> None:
+        self._client = client
+        self._model = model
+
+    def invoke(self, messages: list[dict]) -> "_EchoResponse":
+        resp = self._client.chat.completions.create(
+            model=self._model,
+            temperature=0.2,
+            messages=[{"role": m["role"], "content": m["content"]} for m in messages],
+        )
+        return _EchoResponse(resp.choices[0].message.content or "")
+
+
 @lru_cache(maxsize=1)
 def get_llm():
     """Return a LangChain-compatible chat model.
@@ -66,6 +83,18 @@ def get_llm():
     Returns `_EchoLLM` (no-op) if no API key is configured, so the dashboard
     and recommendation engine always work.
     """
+    if settings.llm_provider == "openrouter" and settings.openrouter_api_key:
+        try:
+            from openai import OpenAI
+            log.info("llm.openrouter_init", model=settings.openrouter_model)
+            client = OpenAI(
+                api_key=settings.openrouter_api_key,
+                base_url=settings.openrouter_base_url,
+            )
+            return _OpenAICompatLLM(client, settings.openrouter_model)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("llm.openrouter_failed", error=str(exc))
+
     if settings.llm_provider == "anthropic" and settings.anthropic_api_key:
         try:
             import anthropic

@@ -38,12 +38,16 @@ class Settings:
     )
 
     # ---- LLM ----
-    # Default provider is Anthropic (Claude). Set LLM_PROVIDER=openai|azure|ollama to switch.
+    # Default provider is Anthropic (Claude). Set LLM_PROVIDER=openrouter|openai|azure|ollama to switch.
     llm_provider: str = _env("LLM_PROVIDER", "anthropic")
     anthropic_api_key: Optional[str] = _env("ANTHROPIC_API_KEY")
     anthropic_model: str = _env("ANTHROPIC_MODEL", "claude-sonnet-4-6")
     openai_api_key: Optional[str] = _env("OPENAI_API_KEY")
     openai_model: str = _env("OPENAI_MODEL", "gpt-4o-mini")
+    # OpenRouter (OpenAI-compatible gateway to many models)
+    openrouter_api_key: Optional[str] = _env("OPENROUTER_API_KEY")
+    openrouter_model: str = _env("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6")
+    openrouter_base_url: str = _env("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     azure_openai_endpoint: Optional[str] = _env("AZURE_OPENAI_ENDPOINT")
     azure_openai_deployment: Optional[str] = _env("AZURE_OPENAI_DEPLOYMENT")
     azure_openai_api_key: Optional[str] = _env("AZURE_OPENAI_API_KEY")
