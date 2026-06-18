@@ -1,6 +1,11 @@
 """Executive overview page."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 import duckdb
 import pandas as pd
 import plotly.express as px
@@ -8,7 +13,6 @@ import streamlit as st
 
 from src.config import settings
 from src.dashboard.components.kpi_card import kpi_card
-from src.dashboard.components.risk_badge import risk_badge
 from src.dashboard.components.stream_panel import render_stream_panel
 
 
@@ -58,7 +62,7 @@ def render() -> None:
     st.subheader("Operational risk distribution")
     cols = st.columns(3)
     color_map = {"Green": "#16a34a", "Amber": "#f59e0b", "Red": "#dc2626"}
-    for label, col in zip(["Red", "Amber", "Green"], cols):
+    for label, col in zip(["Red", "Amber", "Green"], cols, strict=False):
         n = int(risk.loc[risk.classification == label, "n"].sum() or 0)
         col.markdown(
             f"<div style='background:{color_map[label]};color:#fff;padding:1.2em;"
@@ -74,3 +78,7 @@ def render() -> None:
     st.divider()
     render_stream_panel()
     # NB: `con` is a cached_resource shared across reruns — do not close it here.
+
+
+if __name__ == "__main__":
+    render()

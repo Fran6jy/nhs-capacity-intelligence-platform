@@ -169,7 +169,9 @@ nhs-capacity-platform/
 git clone <repo> nhs-capacity-platform
 cd nhs-capacity-platform
 python -m venv .venv && source .venv/bin/activate   # or .venv\Scripts\activate on Windows
-pip install -r requirements.txt
+pip install -r requirements.txt                     # lean, runnable core
+# Optional scale-out infra (Airflow, PySpark, Postgres) + alt LLM backends:
+# pip install -r requirements-scale.txt
 cp .env.example .env                                # add your ANTHROPIC_API_KEY (Claude is the default provider)
 
 # 2. Run the whole pipeline end-to-end:

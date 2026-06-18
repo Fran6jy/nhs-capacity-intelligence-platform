@@ -10,7 +10,6 @@ import json
 import random
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pandas as pd
 
@@ -40,7 +39,7 @@ class AEAttendanceEvent:
         return json.dumps(asdict(self))
 
     @classmethod
-    def from_json(cls, raw: str) -> "AEAttendanceEvent":
+    def from_json(cls, raw: str) -> AEAttendanceEvent:
         return cls(**json.loads(raw))
 
 

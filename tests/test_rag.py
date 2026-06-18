@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.llm.nl2sql import _validate, _heuristic_sql
+from src.llm.nl2sql import _heuristic_sql, _validate
 
 
 def test_validator_rejects_dml():

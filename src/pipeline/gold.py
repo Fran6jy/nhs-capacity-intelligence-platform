@@ -4,7 +4,6 @@ Idempotent: drops and re-creates tables on each run.
 """
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 import duckdb
@@ -48,8 +47,8 @@ def _build_fact() -> pd.DataFrame:
     illness = _read("illness_trends")
     weather = _read("weather")
     dim_h = _read("dim_hospital")
-    dim_s = _read("dim_specialty")
-    dim_r = _read("dim_region")
+    _read("dim_specialty")
+    _read("dim_region")
 
     # Trust → region mapping (via hospital)
     trust_region = (

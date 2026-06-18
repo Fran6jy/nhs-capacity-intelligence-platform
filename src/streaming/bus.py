@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import os
 import queue
-from typing import Optional, Protocol
+from typing import Protocol
 
 from src.utils.logging import get_logger
 
@@ -23,15 +23,15 @@ log = get_logger("streaming.bus")
 class Message:
     __slots__ = ("topic", "key", "value")
 
-    def __init__(self, topic: str, key: Optional[str], value: str) -> None:
+    def __init__(self, topic: str, key: str | None, value: str) -> None:
         self.topic = topic
         self.key = key
         self.value = value
 
 
 class EventBus(Protocol):
-    def publish(self, topic: str, key: Optional[str], value: str) -> None: ...
-    def poll(self, timeout: float = 1.0) -> Optional[Message]: ...
+    def publish(self, topic: str, key: str | None, value: str) -> None: ...
+    def poll(self, timeout: float = 1.0) -> Message | None: ...
     def flush(self) -> None: ...
     def close(self) -> None: ...
 
@@ -43,12 +43,12 @@ class InMemoryBus:
     still share the same queue (mirrors a real broker's shared log).
     """
 
-    _q: "queue.Queue[Message]" = queue.Queue()
+    _q: queue.Queue[Message] = queue.Queue()
 
-    def publish(self, topic: str, key: Optional[str], value: str) -> None:
+    def publish(self, topic: str, key: str | None, value: str) -> None:
         self._q.put(Message(topic, key, value))
 
-    def poll(self, timeout: float = 1.0) -> Optional[Message]:
+    def poll(self, timeout: float = 1.0) -> Message | None:
         try:
             return self._q.get(timeout=timeout)
         except queue.Empty:
@@ -78,11 +78,11 @@ class KafkaBus:
         if topics:
             self._consumer.subscribe(topics)
 
-    def publish(self, topic: str, key: Optional[str], value: str) -> None:
+    def publish(self, topic: str, key: str | None, value: str) -> None:
         self._producer.produce(topic, key=key, value=value)
         self._producer.poll(0)
 
-    def poll(self, timeout: float = 1.0) -> Optional[Message]:
+    def poll(self, timeout: float = 1.0) -> Message | None:
         msg = self._consumer.poll(timeout)
         if msg is None or msg.error():
             return None

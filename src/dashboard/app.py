@@ -1,12 +1,18 @@
 """Streamlit entry point. Configures layout and provides a sidebar nav."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Streamlit runs this script with its own directory on sys.path, not the project
+# root, so make the `src` package importable regardless of launch location.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import duckdb
 import streamlit as st
 
 from src.config import settings
 from src.dashboard.components.kpi_card import kpi_card
-from src.dashboard.components.risk_badge import risk_badge
 from src.llm.agents import InsightOrchestrator
 
 st.set_page_config(

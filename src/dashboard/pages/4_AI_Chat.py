@@ -1,8 +1,12 @@
 """AI chat interface — multi-agent insight generation."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 import duckdb
-import pandas as pd
 import streamlit as st
 
 from src.config import settings

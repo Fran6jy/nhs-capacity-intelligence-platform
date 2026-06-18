@@ -6,9 +6,8 @@
 """
 from __future__ import annotations
 
-import xgboost as xgb
 import pandas as pd
-import numpy as np
+import xgboost as xgb
 
 from src.utils.logging import get_logger
 
@@ -31,7 +30,7 @@ class WorkforceDemandModel:
                 for w in (14, 30):
                     df[f"{col}_roll{w}"] = (
                         df.groupby(["trust_code", "role"])[col]
-                        .transform(lambda s: s.rolling(w, min_periods=1).mean())
+                        .transform(lambda s, w=w: s.rolling(w, min_periods=1).mean())
                     )
         df["month"] = pd.to_datetime(df["date_key"]).dt.month
         df["dow"] = pd.to_datetime(df["date_key"]).dt.dayofweek

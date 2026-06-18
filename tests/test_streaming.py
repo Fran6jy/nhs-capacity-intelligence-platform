@@ -5,14 +5,13 @@ import sys
 from pathlib import Path
 
 import duckdb
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import settings
 from src.streaming.bus import InMemoryBus
-from src.streaming.events import AEAttendanceEvent, generate_event
 from src.streaming.consumer import run_consumer
+from src.streaming.events import AEAttendanceEvent, generate_event
 from src.streaming.producer import run_producer
 
 

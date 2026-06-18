@@ -16,11 +16,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import duckdb
-import pandas as pd
 
 from src.config import settings
-from src.llm.rag import get_llm
 from src.llm.prompts import SYSTEM_AGENT_PLANNER, SYSTEM_INSIGHT
+from src.llm.rag import get_llm
 from src.utils.logging import get_logger
 
 log = get_logger("agents")

@@ -14,7 +14,7 @@ def add_rolling_means(df: pd.DataFrame, col: str, windows=(7, 14, 30)) -> pd.Dat
     for w in windows:
         df[f"{col}_roll{w}"] = (
             df.groupby(["hospital_id", "specialty_id"])[col]
-            .transform(lambda s: s.rolling(w, min_periods=1).mean())
+            .transform(lambda s, w=w: s.rolling(w, min_periods=1).mean())
         )
     return df
 

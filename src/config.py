@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -19,7 +18,7 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent  # src/config.py -> project root
 
 
-def _env(key: str, default: Optional[str] = None) -> Optional[str]:
+def _env(key: str, default: str | None = None) -> str | None:
     val = os.getenv(key, default)
     return val if val not in (None, "") else default
 
@@ -40,17 +39,20 @@ class Settings:
     # ---- LLM ----
     # Default provider is Anthropic (Claude). Set LLM_PROVIDER=openrouter|openai|azure|ollama to switch.
     llm_provider: str = _env("LLM_PROVIDER", "anthropic")
-    anthropic_api_key: Optional[str] = _env("ANTHROPIC_API_KEY")
+    anthropic_api_key: str | None = _env("ANTHROPIC_API_KEY")
     anthropic_model: str = _env("ANTHROPIC_MODEL", "claude-sonnet-4-6")
-    openai_api_key: Optional[str] = _env("OPENAI_API_KEY")
+    openai_api_key: str | None = _env("OPENAI_API_KEY")
     openai_model: str = _env("OPENAI_MODEL", "gpt-4o-mini")
     # OpenRouter (OpenAI-compatible gateway to many models)
-    openrouter_api_key: Optional[str] = _env("OPENROUTER_API_KEY")
+    openrouter_api_key: str | None = _env("OPENROUTER_API_KEY")
     openrouter_model: str = _env("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6")
     openrouter_base_url: str = _env("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-    azure_openai_endpoint: Optional[str] = _env("AZURE_OPENAI_ENDPOINT")
-    azure_openai_deployment: Optional[str] = _env("AZURE_OPENAI_DEPLOYMENT")
-    azure_openai_api_key: Optional[str] = _env("AZURE_OPENAI_API_KEY")
+    # Let the (slow, optional) LLM rewrite rule-based recommendations. Off by
+    # default so the batch pipeline stays fast and deterministic.
+    recommender_use_llm: bool = _env("RECOMMENDER_USE_LLM", "false").lower() in ("1", "true", "yes")
+    azure_openai_endpoint: str | None = _env("AZURE_OPENAI_ENDPOINT")
+    azure_openai_deployment: str | None = _env("AZURE_OPENAI_DEPLOYMENT")
+    azure_openai_api_key: str | None = _env("AZURE_OPENAI_API_KEY")
 
     # ---- runtime ----
     log_level: str = _env("LOG_LEVEL", "INFO")

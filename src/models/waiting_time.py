@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import lightgbm as lgb
-import numpy as np
 import pandas as pd
 
 from src.utils.logging import get_logger
@@ -27,7 +26,7 @@ class WaitingTimeForecaster:
                 for w in (7, 14, 30):
                     df[f"{col}_roll{w}"] = (
                         df.groupby(["hospital_id", "specialty_id"])[col]
-                        .transform(lambda s: s.rolling(w, min_periods=1).mean())
+                        .transform(lambda s, w=w: s.rolling(w, min_periods=1).mean())
                     )
         df["month"] = pd.to_datetime(df["date_key"]).dt.month
         df["dow"] = pd.to_datetime(df["date_key"]).dt.dayofweek

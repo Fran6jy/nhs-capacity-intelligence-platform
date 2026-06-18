@@ -69,8 +69,14 @@ def _role_with_highest_vacancy(workforce: pd.DataFrame, trust_code: str) -> str:
 
 
 def _run_llm_action(prompt: str) -> str:
-    """Optional LLM embellishment. Falls back to the rule text if LLM
-    is unavailable so the pipeline is always runnable."""
+    """Optional LLM embellishment of a rule-based action.
+
+    Off by default: the batch pipeline must stay fast and deterministic, so it
+    does not block on (potentially slow) live LLM calls. Enable by setting
+    ``RECOMMENDER_USE_LLM=true``. Always falls back to the rule text on error.
+    """
+    if not settings.recommender_use_llm:
+        return prompt
     try:
         from src.llm.prompts import SYSTEM_RECOMMENDER
         from src.llm.rag import get_llm

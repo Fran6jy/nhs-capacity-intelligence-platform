@@ -12,11 +12,8 @@ Design notes:
 """
 from __future__ import annotations
 
-import json
 import random
 from datetime import date, timedelta
-from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 import requests
@@ -26,14 +23,13 @@ from src.config import settings
 from src.ingestion import (
     hes_client,
     illness_trends,
-    nhs_api,
     population,
     weather,
     workforce,
 )
+from src.utils.dates import build_dim_date
 from src.utils.io import write_parquet
 from src.utils.logging import get_logger
-from src.utils.dates import build_dim_date
 
 log = get_logger("bronze")
 
@@ -138,7 +134,7 @@ def ingest_nhs_waiting_list(period_start: date, period_end: date) -> pd.DataFram
         if len(months) == 0:
             months = [period_start]
         rows = []
-        for trust_code, _, region, htype, beds in NHS_TRUSTS:
+        for trust_code, _, _region, _htype, _beds in NHS_TRUSTS:
             for sp, _, _, _ in SPECIALTIES:
                 size = random.randint(800, 18000)
                 wait = random.uniform(8, 35)
@@ -166,7 +162,7 @@ def ingest_hes(period_start: date, period_end: date) -> pd.DataFrame:
     except Exception as exc:  # noqa: BLE001
         log.warning("ingest_hes.fallback", error=str(exc))
         rows = []
-        for trust_code, _, region, htype, beds in NHS_TRUSTS:
+        for trust_code, _, _region, _htype, beds in NHS_TRUSTS:
             for sp, _, _, is_em in SPECIALTIES:
                 days = (period_end - period_start).days
                 for d in range(days):
@@ -192,7 +188,7 @@ def ingest_workforce() -> pd.DataFrame:
     except Exception as exc:  # noqa: BLE001
         log.warning("ingest_workforce.fallback", error=str(exc))
         rows = []
-        for trust_code, _, _, htype, beds in NHS_TRUSTS:
+        for trust_code, _, _, _htype, beds in NHS_TRUSTS:
             for role in ("Consultant", "Junior Doctor", "Nurse", "Allied Health"):
                 base = int(beds * {"Consultant": 0.12, "Junior Doctor": 0.18,
                                     "Nurse": 0.9, "Allied Health": 0.25}[role])

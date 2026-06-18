@@ -5,11 +5,10 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.risk.risk_engine import compute_risk, _classify
+from src.risk.risk_engine import _classify, compute_risk
 
 
 def test_classify_thresholds():

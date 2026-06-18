@@ -12,8 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import settings
 from src.pipeline.bronze import run as bronze_run
-from src.pipeline.silver import run as silver_run
 from src.pipeline.gold import run as gold_run
+from src.pipeline.silver import run as silver_run
 
 
 @pytest.fixture(scope="module")

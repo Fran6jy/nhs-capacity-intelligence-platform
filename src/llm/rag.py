@@ -8,7 +8,6 @@ the real model.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Optional
 
 from src.config import settings
 from src.utils.logging import get_logger
@@ -19,7 +18,7 @@ log = get_logger("llm.client")
 class _EchoLLM:
     """Local fallback LLM that returns a templated answer."""
 
-    def invoke(self, messages: list[dict]) -> "_EchoResponse":
+    def invoke(self, messages: list[dict]) -> _EchoResponse:
         user = next((m for m in reversed(messages) if m["role"] == "user"), messages[-1])
         content = (
             "[Local LLM — no API key set]\n\n"
@@ -46,7 +45,7 @@ class _AnthropicLLM:
         self._client = client
         self._model = model
 
-    def invoke(self, messages: list[dict]) -> "_EchoResponse":
+    def invoke(self, messages: list[dict]) -> _EchoResponse:
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
         chat = [m for m in messages if m["role"] in ("user", "assistant")]
         resp = self._client.messages.create(
@@ -67,7 +66,7 @@ class _OpenAICompatLLM:
         self._client = client
         self._model = model
 
-    def invoke(self, messages: list[dict]) -> "_EchoResponse":
+    def invoke(self, messages: list[dict]) -> _EchoResponse:
         resp = self._client.chat.completions.create(
             model=self._model,
             temperature=0.2,

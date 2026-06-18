@@ -1,0 +1,21 @@
+# Optional scale-out infrastructure and alternative LLM backends.
+# NOT required to run the MVP, the dashboard, or the test suite — install only
+# when wiring the production paths described in ARCHITECTURE.md / DEPLOYMENT.md.
+#
+#   pip install -r requirements.txt -r requirements-scale.txt
+
+# Distributed data engineering
+pyspark==3.5.1
+
+# Warehouse / RDBMS targets (Postgres, Synapse via SQLAlchemy)
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+
+# Orchestration
+apache-airflow==2.9.0
+
+# Alternative LLM backends (LangChain-based providers in src/llm/rag.py)
+langchain==0.2.5
+langchain-community==0.2.5
+langchain-openai==0.1.10
+tiktoken==0.7.0

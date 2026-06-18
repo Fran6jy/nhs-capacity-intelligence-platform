@@ -1,31 +1,23 @@
+# Runnable + testable core. Installs cleanly on Python 3.10+ with no native
+# build pain. The optional scale-out infra (Airflow, PySpark, Postgres) and
+# alternative LLM backends live in requirements-scale.txt.
+
 # Core
 pandas==2.2.2
 numpy==1.26.4
 pyarrow==15.0.0
 duckdb==0.10.3
 
-# Data engineering
-pyspark==3.5.1
-sqlalchemy==2.0.30
-psycopg2-binary==2.9.9
-
-# Orchestration
-apache-airflow==2.9.0
-
-# ML
+# ML / forecasting
 prophet==1.1.5
 xgboost==2.0.3
 lightgbm==4.3.0
 scikit-learn==1.5.0
 joblib==1.4.2
 
-# LLM
-anthropic==0.40.0          # default provider (Claude)
+# LLM (default provider Claude; OpenRouter/OpenAI via the openai SDK)
+anthropic==0.40.0
 openai==1.35.0
-langchain==0.2.5
-langchain-community==0.2.5
-langchain-openai==0.1.10
-tiktoken==0.7.0
 
 # Dashboard
 streamlit==1.36.0
@@ -40,7 +32,7 @@ structlog==24.2.0
 requests==2.32.3
 pyyaml==6.0.1
 
-# Testing
+# Testing / quality
 pytest==8.2.2
 pytest-cov==5.0.0
 ruff==0.5.0

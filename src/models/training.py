@@ -3,9 +3,7 @@ results to `ml_forecast` table in the warehouse.
 """
 from __future__ import annotations
 
-import sys
 from datetime import date
-from pathlib import Path
 
 import duckdb
 import pandas as pd
@@ -82,7 +80,7 @@ def train_all() -> None:
     # 4) Workforce demand — write to its own table in warehouse via gold.load
     wf = WorkforceDemandModel()
     wf.fit(workforce.assign(date_key=date.today()))
-    shortage = wf.predict_shortage(workforce.assign(date_key=date.today()))
+    wf.predict_shortage(workforce.assign(date_key=date.today()))
     demand = wf.predict_demand(workforce.assign(date_key=date.today()))
     workforce_out = demand.rename(columns={"demand_fte": "yhat"})
     workforce_out["target"] = "workforce_demand"
