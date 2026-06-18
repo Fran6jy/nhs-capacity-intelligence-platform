@@ -83,7 +83,7 @@ git integration) for continuous delivery.
 
 | Component | Azure service |
 |---|---|
-| Ingestion | Azure Data Factory (mirrors `dags/nhs_etl_dag.py`) |
+| Ingestion | Azure Data Factory pipelines |
 | Lake (Bronze/Silver) | ADLS Gen2 (partitioned parquet) |
 | Warehouse (Gold) | Azure Database for PostgreSQL Flexible Server / Synapse |
 | Compute | Azure Databricks (PySpark) — see `requirements-scale.txt` |

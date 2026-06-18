@@ -2,7 +2,7 @@
 
 A production-grade analytics + AI platform that shifts NHS operations from **reactive reporting** to **predictive + prescriptive intelligence**.
 
-> Ingests NHS operational data → forecasts A&E demand, bed occupancy, workforce gaps, and waiting times → surfaces insights via LLM-powered RAG chat + Streamlit & Power BI dashboards.
+> Ingests NHS operational data → forecasts A&E demand, bed occupancy, workforce gaps, and waiting times → surfaces insights via a React web app, an LLM-powered RAG chat, and Power BI.
 
 ---
 
@@ -48,7 +48,7 @@ A production-grade analytics + AI platform that shifts NHS operations from **rea
             └─────────────┬──────┴──────────┬──────────┘
                           ▼                 ▼
               ┌──────────────────────┐  ┌──────────────────────┐
-              │  STREAMLIT DASHBOARD │  │  POWER BI EXECUTIVE  │
+              │  REACT WEB APP       │  │  POWER BI EXECUTIVE  │
               │  • Exec Overview     │  │  reports             │
               │  • Forecasts         │  │                      │
               │  • Workforce         │  │                      │
@@ -74,9 +74,6 @@ nhs-capacity-platform/
 │   ├── raw/                          # 🥉 Bronze
 │   ├── processed/                    # 🥈 Silver
 │   └── gold/                         # 🥇 Gold
-│
-├── dags/                             # Airflow DAGs
-│   └── nhs_etl_dag.py
 │
 ├── src/
 │   ├── __init__.py
@@ -116,18 +113,6 @@ nhs-capacity-platform/
 │   │   ├── agents.py
 │   │   ├── recommender.py
 │   │   └── prompts.py
-│   ├── dashboard/                    # Streamlit (legacy analyst UI)
-│   │   ├── app.py
-│   │   ├── pages/
-│   │   │   ├── 1_Executive_Overview.py
-│   │   │   ├── 2_Forecasting.py
-│   │   │   ├── 3_Workforce.py
-│   │   │   ├── 4_AI_Chat.py
-│   │   │   └── 5_Risk_Map.py
-│   │   └── components/
-│   │       ├── kpi_card.py
-│   │       ├── risk_badge.py
-│   │       └── forecast_chart.py
 │   └── utils/
 │       ├── logging.py
 │       ├── io.py
@@ -155,7 +140,6 @@ nhs-capacity-platform/
 │   └── src/{pages,components,lib}
 │
 ├── docker/
-│   ├── Dockerfile                    # Streamlit image (legacy)
 │   └── Dockerfile.api                # FastAPI image
 ├── docker-compose.yml                # Postgres + API + frontend
 ├── render.yaml                       # API deploy (Render)
@@ -200,8 +184,6 @@ uvicorn src.api.main:app --reload          # http://localhost:8000/docs
 # 3c. Launch the React + Tailwind frontend (immersive enterprise UI)
 cd frontend && npm install && npm run dev      # http://localhost:5173 (proxies /api -> :8000)
 
-# 3d. (Optional) the legacy Streamlit analyst dashboard
-streamlit run src/dashboard/app.py
 
 # 4. (Optional) Real-time A&E ingestion — batch simulation or live Kafka
 python scripts/run_stream_sim.py --events 3000 --rate 1500
@@ -214,7 +196,7 @@ Open <http://localhost:8501>.
 
 > **Note:** Every external source has a synthetic fallback, so the full pipeline runs offline with no
 > NHS/ONS/Met Office credentials. The LLM layer defaults to **Claude** (`LLM_PROVIDER=anthropic`); with no
-> API key it falls back to a local echo model so the dashboard and RAG chat still function. Set
+> API key it falls back to a local echo model so the web app and RAG chat still function. Set
 > `LLM_PROVIDER=openai|azure|ollama` to switch providers.
 
 ---

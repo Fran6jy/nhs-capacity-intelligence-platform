@@ -1,6 +1,6 @@
-"""Centralised LLM client. Supports OpenAI, Azure OpenAI, and a no-op
-fallback that returns canned responses — keeping the Streamlit app
-usable without an API key.
+"""Centralised LLM client. Supports Anthropic, OpenRouter, OpenAI, Azure, and a
+no-op fallback that returns canned responses — keeping the app usable without
+an API key.
 
 Set `LLM_PROVIDER=openai` (default) and `OPENAI_API_KEY=sk-…` to enable
 the real model.

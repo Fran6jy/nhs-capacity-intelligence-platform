@@ -24,7 +24,7 @@ jobs:
       - name: Test
         run: pytest tests/ --cov=src
       - name: Build Docker image
-        run: docker build -f docker/Dockerfile -t nhs-capacity-app:ci .
+        run: docker build -f docker/Dockerfile.api -t nhs-capacity-api:ci .
 
   frontend:
     runs-on: ubuntu-latest

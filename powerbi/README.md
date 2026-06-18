@@ -14,7 +14,7 @@ Power BI reports.
    * `v_top_risk_trusts`
    * `v_forecast_long`
    * `recommendation`
-4. Build executive pages as in `src/dashboard/pages/`.
+4. Build executive report pages mirroring the web app (`frontend/src/pages/`).
 
 ## DirectQuery to Azure Synapse (production)
 
