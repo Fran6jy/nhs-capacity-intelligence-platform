@@ -300,6 +300,17 @@ def run(period_start: date | None = None, period_end: date | None = None) -> Non
     period_end = period_end or date.today()
     period_start = period_start or (period_end - timedelta(days=180))
 
+    # Use the REAL NHS trust roster from the ODS API when reachable, so every
+    # downstream generator/dimension runs over genuine NHS organisations.
+    # Falls back to the static synthetic roster offline.
+    global NHS_TRUSTS
+    try:
+        from src.ingestion import ods
+        NHS_TRUSTS = ods.fetch_trusts(limit=16)
+        log.info("bronze.trusts_live", source="ods", count=len(NHS_TRUSTS))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("bronze.trusts_fallback", error=str(exc))
+
     log.info("bronze.start", start=str(period_start), end=str(period_end))
 
     sources = {
