@@ -1,42 +1,66 @@
-# Power BI connection guide
+# Power BI starter report
 
-The Gold warehouse (DuckDB file or Azure Synapse) is the single source of truth for
-Power BI reports.
+The Gold warehouse lives in **PostgreSQL (Supabase)** — the single source of
+truth for both the web app and Power BI.
 
-## DirectQuery to DuckDB (local / file-based)
+## One-click connect (recommended)
 
-1. Install the **DuckDB ODBC driver** (https://github.com/duckdb/duckdb-odbc).
-2. In Power BI Desktop → *Get Data* → *ODBC* → paste the DSN string
-   `Driver={DuckDB Driver};Database=<absolute path>/data/gold/warehouse.duckdb`.
-3. Import these tables/views:
-   * `v_national_pressure`
-   * `v_regional_risk_latest`
-   * `v_top_risk_trusts`
-   * `v_forecast_long`
-   * `recommendation`
-4. Build executive report pages mirroring the web app (`frontend/src/pages/`).
+1. Double-click **`nhs_supabase.pbids`** — Power BI Desktop opens pre-connected to
+   the Supabase Postgres host.
+2. When prompted for credentials, choose **Database** and enter:
+   * **User name:** `postgres.dtxavwlqmefuhyphjikk`
+   * **Password:** your Supabase database password
+   (If asked, set encryption to *Enabled* — Supabase requires SSL.)
+3. In the Navigator, tick these analytics views + tables, then **Load**:
+   * `v_national_pressure`   — national daily pressure
+   * `v_regional_risk_latest` — Red/Amber/Green by region
+   * `v_top_risk_trusts`     — top at-risk trusts
+   * `v_forecast_long`       — forecasts (target × horizon)
+   * `recommendation`        — prescriptive actions
+   * `dim_region`, `dim_hospital` — for slicers / maps
 
-## DirectQuery to Azure Synapse (production)
+> `nhs_supabase.pbids` targets the IPv4 **session pooler** host (Power BI is
+> IPv4-only). Edit the `server` line if your Supabase region differs.
 
-1. In Power BI Service, *Get Data* → *Azure Synapse Analytics (SQL DW)*.
-2. Server = `<synapse-workspace>.sql.azuresynapse.net`, Database = `nhs_gold`.
-3. Use **DirectQuery** (not Import) so the report always reflects the latest
-   warehouse state after each Airflow run.
+## Starter DAX measures
 
-## Row-Level Security (RLS)
+Create these in a `_Measures` table (Modeling → New measure):
 
-For multi-ICB / multi-Region deployments, configure RLS in Synapse using
-the `region_id` column on `dim_hospital`. Sample RLS predicate:
-
-```sql
-CREATE SECURITY POLICY region_filter
-ADD FILTER PREDICATE dbo.fn_region_access_predicate(region_id) ON dbo.dim_hospital;
+```DAX
+Latest Date          = MAX ( v_national_pressure[date_key] )
+Avg Bed Occupancy %  = CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ),
+                                    v_national_pressure[date_key] = [Latest Date] )
+Total Waiting List   = CALCULATE ( SUM ( v_national_pressure[total_waiting_list] ),
+                                   v_national_pressure[date_key] = [Latest Date] )
+A&E Attendances      = CALCULATE ( SUM ( v_national_pressure[ae_attendances] ),
+                                   v_national_pressure[date_key] = [Latest Date] )
+Trusts in Red        = CALCULATE ( COUNTROWS ( v_top_risk_trusts ),
+                                   v_top_risk_trusts[classification] = "Red" )
+Occupancy 7d Avg     = AVERAGEX ( DATESINPERIOD ( v_national_pressure[date_key], [Latest Date], -7, DAY ),
+                                  CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ) ) )
 ```
 
-## Recommended visuals
+## Suggested report pages (mirror the web app)
 
-* **Executive overview:** KPI cards (Red/Amber/Green counts), line chart of
-  `v_national_pressure.avg_bed_occupancy_pct`, choropleth of regional risk.
-* **Forecasting:** line + confidence band from `v_forecast_long`.
-* **Workforce:** stacked bar of vacancy rate by region; table of
-  `recommendation` filtered to Red severity.
+* **Executive overview** — KPI cards (the measures above), line chart of
+  `avg_bed_occupancy_pct` over `date_key`, donut of Red/Amber/Green from
+  `v_regional_risk_latest`, table of `v_top_risk_trusts`.
+* **Forecasting** — line + shaded band from `v_forecast_long` (`yhat`,
+  `yhat_lower`, `yhat_upper`), sliced by `target` and `horizon_days`.
+* **Workforce** — bar of vacancy rate by region; `recommendation` table filtered
+  to High severity.
+* **Risk map** — filled map on `dim_region` shaded by `avg_score`.
+
+## Refresh
+
+The data is republished to Supabase every 2 hours by the `Refresh data` GitHub
+Action. Schedule a matching **Scheduled refresh** in the Power BI Service so the
+report tracks it.
+
+## Row-Level Security (multi-ICB)
+
+Filter on `dim_hospital[region_id]` (or `dim_region[region_id]`):
+
+```DAX
+[region_id] = LOOKUPVALUE ( UserRegion[region_id], UserRegion[email], USERPRINCIPALNAME () )
+```

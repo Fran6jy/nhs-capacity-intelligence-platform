@@ -63,6 +63,9 @@ class Settings:
     app_env: str = _env("APP_ENV", "local")
 
     # ---- API ----
+    # Optional API-key auth. When set, every /api/* route (except health) requires
+    # an `X-API-Key` header matching this value; when unset, the API is open.
+    api_key: str | None = _env("API_KEY")
     # Comma-separated allowed CORS origins for the React frontend.
     cors_origins: tuple[str, ...] = tuple(
         o.strip() for o in _env(

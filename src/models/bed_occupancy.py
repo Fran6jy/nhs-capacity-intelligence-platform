@@ -126,8 +126,11 @@ class BedOccupancyForecaster:
         X_future = future_df[self._features].apply(pd.to_numeric, errors="coerce").astype(float)
         residuals = self._xgb.predict(X_future)
 
-        # Combine Prophet + residual
-        out = prophet_pred[prophet_pred.date_key > history.index.max()].copy()
+        # Combine Prophet + residual. Align to exactly the forecast dates the
+        # residuals were built for — the XGB history can be shorter than
+        # Prophet's (e.g. real weather lags a few days, trimming lag rows), so a
+        # ">" filter on the Prophet frame would over-select.
+        out = prophet_pred[prophet_pred.date_key.isin(future_dates)].copy()
         out["residual"] = residuals
         out["yhat"] = out["yhat"] + out["residual"]
         out["yhat_lower"] = out["yhat_lower"] + out["residual"] * 0.6

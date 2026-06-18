@@ -1,0 +1,15 @@
+{
+  "version": "0.1",
+  "connections": [
+    {
+      "details": {
+        "protocol": "postgresql",
+        "address": {
+          "server": "aws-0-eu-west-1.pooler.supabase.com:5432",
+          "database": "postgres"
+        }
+      },
+      "mode": "Import"
+    }
+  ]
+}

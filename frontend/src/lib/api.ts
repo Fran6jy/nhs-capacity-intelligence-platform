@@ -1,9 +1,15 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "";
+const API_KEY = import.meta.env.VITE_API_KEY;
+
+// Attach the API key header when configured (matches the API's API_KEY guard).
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return API_KEY ? { ...extra, "X-API-Key": API_KEY } : extra;
+}
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }
@@ -106,7 +112,7 @@ export const useAsk = () =>
     mutationFn: async (question: string): Promise<AskResponse> => {
       const res = await fetch(`${BASE}/api/ask`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ question }),
       });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);

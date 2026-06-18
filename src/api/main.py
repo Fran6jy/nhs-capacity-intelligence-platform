@@ -12,8 +12,9 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src import db
 from src.api.schemas import AskRequest, AskResponse, HealthResponse, KPIs
@@ -36,6 +37,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def api_key_guard(request: Request, call_next):
+    """Require an X-API-Key header on /api/* when API_KEY is configured.
+
+    Open when API_KEY is unset (default), so the deploy keeps working until you
+    opt in. Health, docs, and CORS preflight (OPTIONS) are always exempt.
+    """
+    if settings.api_key and request.method != "OPTIONS":
+        path = request.url.path
+        exempt = path == "/api/health" or not path.startswith("/api")
+        if not exempt and request.headers.get("x-api-key") != settings.api_key:
+            return JSONResponse({"detail": "invalid or missing API key"}, status_code=401)
+    return await call_next(request)
 
 
 def _records(df) -> list[dict[str, Any]]:
