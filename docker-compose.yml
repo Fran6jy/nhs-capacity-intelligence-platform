@@ -1,0 +1,70 @@
+# Full enterprise stack: PostgreSQL + FastAPI + React frontend.
+#
+#   docker compose up -d --build            # start db + api + frontend
+#   docker compose run --rm seed            # build the gold warehouse & load Postgres (one-off)
+#
+# Frontend:  http://localhost:8080   API: http://localhost:8000   DB: localhost:5432
+# Point the API at Supabase instead by setting DATABASE_URL in your .env.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: nhs-db
+    environment:
+      POSTGRES_USER: nhs
+      POSTGRES_PASSWORD: nhs
+      POSTGRES_DB: nhs_warehouse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nhs -d nhs_warehouse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: nhs-api
+    environment:
+      # Defaults to the bundled Postgres; override DATABASE_URL in .env for Supabase.
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://nhs:nhs@db:5432/nhs_warehouse}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openrouter}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-nvidia/nemotron-3-ultra-550b-a55b:free}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: nhs-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # One-off: build the medallion gold warehouse (DuckDB) and publish it into Postgres.
+  seed:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    profiles: ["seed"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://nhs:nhs@db:5432/nhs_warehouse}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "python scripts/run_pipeline.py && python scripts/publish_to_postgres.py"
+
+volumes:
+  pgdata:

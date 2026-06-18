@@ -1,0 +1,22 @@
+# Render blueprint for the FastAPI backend (DB = Supabase).
+# Deploy: push to GitHub, then New + → Blueprint → pick this repo.
+# Set the secret env vars (sync:false) in the Render dashboard.
+services:
+  - type: web
+    name: nhs-capacity-api
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile.api
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL          # Supabase IPv4 session-pooler URI (URL-encode the password!)
+        sync: false
+      - key: LLM_PROVIDER
+        value: openrouter
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: nvidia/nemotron-3-ultra-550b-a55b:free
+      - key: CORS_ORIGINS          # your Vercel URL, e.g. https://nhs-capacity.vercel.app
+        sync: false
