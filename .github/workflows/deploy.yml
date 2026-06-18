@@ -1,0 +1,69 @@
+name: Deploy
+
+# Runs after the CI workflow succeeds on main (or on manual dispatch), and
+# deploys the API to Render and the frontend to Vercel. Each step is guarded by
+# the presence of its secret, so the workflow never fails for secrets you
+# haven't configured yet.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   RENDER_DEPLOY_HOOK   Render → service → Settings → Deploy Hook (a URL)
+#   Vercel — either:
+#     VERCEL_TOKEN + VERCEL_ORG_ID + VERCEL_PROJECT_ID   (CI-built deploy, prints URL)
+#     VITE_API_BASE                                       (your Render API URL, for the build)
+#   …or simply:
+#     VERCEL_DEPLOY_HOOK   Vercel → project → Settings → Git → Deploy Hooks (a URL)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-api:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK not set — skipping API deploy."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" && echo "✅ Render deploy triggered."
+
+  deploy-frontend:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Deploy to Vercel
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            npm i -g vercel@latest
+            vercel pull  --yes --environment=production --token="$VERCEL_TOKEN"
+            vercel build --prod --token="$VERCEL_TOKEN"
+            url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+            echo "✅ Vercel deploy: $url"
+            echo "### Frontend deployed: $url" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "$HOOK" ]; then
+            curl -fsS -X POST "$HOOK" && echo "✅ Vercel deploy hook triggered."
+          else
+            echo "No Vercel secrets set (VERCEL_TOKEN+IDs or VERCEL_DEPLOY_HOOK) — skipping frontend deploy."
+          fi
