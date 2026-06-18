@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    image: nhs-capacity-app:latest
+    container_name: nhs-app
+    ports:
+      - "8501:8501"
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data
+    restart: unless-stopped
+
+  airflow:
+    image: apache/airflow:2.9.0-python3.10
+    container_name: nhs-airflow
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      LOAD_EX: "n"
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../src:/opt/airflow/src
+      - ../data:/opt/airflow/data
+    command: bash -c "pip install -r /opt/airflow/dags/requirements-light.txt && airflow db init && airflow users create --username admin --password admin --firstname A --lastname B --role Admin --email a@b.c || true && airflow webserver --port 8080"
+
+  redis:
+    image: redis:7-alpine
+    container_name: nhs-redis
+    ports:
+      - "6379:6379"

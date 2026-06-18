@@ -1,0 +1,1 @@
+"""Warehouse (DuckDB / Postgres / Synapse)."""
