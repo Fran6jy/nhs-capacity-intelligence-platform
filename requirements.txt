@@ -15,6 +15,13 @@ lightgbm==4.3.0
 scikit-learn==1.5.0
 joblib==1.4.2
 
+# Backend API + PostgreSQL
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+httpx==0.27.0
+
 # LLM (default provider Claude; OpenRouter/OpenAI via the openai SDK)
 anthropic==0.40.0
 openai==1.35.0

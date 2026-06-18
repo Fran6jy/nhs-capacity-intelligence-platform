@@ -7,10 +7,6 @@
 # Distributed data engineering
 pyspark==3.5.1
 
-# Warehouse / RDBMS targets (Postgres, Synapse via SQLAlchemy)
-sqlalchemy==2.0.30
-psycopg2-binary==2.9.9
-
 # Orchestration
 apache-airflow==2.9.0
 

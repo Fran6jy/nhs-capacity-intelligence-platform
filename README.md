@@ -178,7 +178,15 @@ cp .env.example .env                                # add your ANTHROPIC_API_KEY
 #    bronze → silver → gold (star schema) → train models → risk scores → recommendations
 python scripts/run_pipeline.py
 
-# 3. Launch dashboard
+# 3a. Publish the gold warehouse into PostgreSQL (system-of-record)
+#     Point DATABASE_URL at your managed Postgres (Azure/RDS/Supabase) or a local one.
+export DATABASE_URL=postgresql+psycopg2://nhs:password@localhost:5432/nhs_warehouse
+python scripts/publish_to_postgres.py
+
+# 3b. Run the FastAPI backend (serves the React frontend + Power BI from Postgres)
+uvicorn src.api.main:app --reload          # http://localhost:8000/docs
+
+# 3c. Launch the analyst dashboard (Streamlit; optional alongside the API)
 streamlit run src/dashboard/app.py
 
 # 4. (Optional) Real-time A&E ingestion — batch simulation or live Kafka

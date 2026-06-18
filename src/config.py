@@ -35,6 +35,10 @@ class Settings:
     warehouse_path: Path = Path(
         _env("WAREHOUSE_PATH", str(PROJECT_ROOT / "data" / "gold" / "warehouse.duckdb"))
     )
+    # PostgreSQL system-of-record (managed cloud or local). When set, the API
+    # and publisher use it; the offline batch pipeline still builds the gold
+    # tables in DuckDB and `publish_to_postgres` loads them here.
+    database_url: str | None = _env("DATABASE_URL")
 
     # ---- LLM ----
     # Default provider is Anthropic (Claude). Set LLM_PROVIDER=openrouter|openai|azure|ollama to switch.
@@ -57,6 +61,14 @@ class Settings:
     # ---- runtime ----
     log_level: str = _env("LOG_LEVEL", "INFO")
     app_env: str = _env("APP_ENV", "local")
+
+    # ---- API ----
+    # Comma-separated allowed CORS origins for the React frontend.
+    cors_origins: tuple[str, ...] = tuple(
+        o.strip() for o in _env(
+            "CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"
+        ).split(",") if o.strip()
+    )
 
     # ---- analytics ----
     forecast_horizons: tuple[int, ...] = (30, 60, 90)
