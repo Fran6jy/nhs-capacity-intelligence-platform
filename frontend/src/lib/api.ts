@@ -107,6 +107,46 @@ export const useRecommendations = () => useQuery({ queryKey: ["recs"], queryFn: 
 export const useStreamAe = () =>
   useQuery({ queryKey: ["stream-ae"], queryFn: () => get<StreamAe>("/api/stream/ae"), refetchInterval: 15_000 });
 
+export interface OpsMinute {
+  minute_ts: string;
+  arrivals: number;
+  available_beds: number;
+  queue_length: number;
+  ambulances_waiting: number;
+  occupancy_pct: number;
+  breach_risk: number;
+}
+export interface OpsState {
+  available: boolean;
+  minutes: OpsMinute[];
+  latest: {
+    minute_ts?: string;
+    arrivals: number;
+    occupancy_pct: number;
+    available_beds: number;
+    queue_length: number;
+    ambulances_waiting: number;
+    breach_risk: number;
+  };
+}
+export interface OpsExplain {
+  metrics: {
+    arrivals_vs_baseline_pct: number;
+    occupancy_pct: number;
+    available_beds_now: number;
+    available_beds_change: number;
+    queue_now: number;
+    ambulances_waiting_now: number;
+    ambulances_vs_baseline_pct: number;
+  };
+  narrative: string;
+  provider: string;
+}
+export const useOpsState = () =>
+  useQuery({ queryKey: ["ops-state"], queryFn: () => get<OpsState>("/api/ops/state"), refetchInterval: 15_000 });
+export const useOpsExplain = () =>
+  useMutation({ mutationFn: () => get<OpsExplain>("/api/ops/explain") });
+
 export const useAsk = () =>
   useMutation({
     mutationFn: async (question: string): Promise<AskResponse> => {

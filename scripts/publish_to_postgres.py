@@ -30,7 +30,7 @@ TABLES = [
     "dim_date", "dim_hospital", "dim_specialty", "dim_region",
     "hospital_activity_fact", "ml_forecast", "risk_score", "recommendation",
 ]
-OPTIONAL_TABLES = ["ae_stream_agg"]  # present only after the streaming sim runs
+OPTIONAL_TABLES = ["ae_stream_agg", "ae_dept_state"]  # present after the streaming sim runs
 
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 

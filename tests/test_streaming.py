@@ -21,6 +21,19 @@ def test_event_roundtrip():
     assert 1 <= e.acuity <= 5
 
 
+def test_digital_twin_state():
+    from src.streaming.twin import COLUMNS, simulate_window
+
+    df = simulate_window(minutes=60)
+    assert not df.empty
+    assert list(df.columns) == COLUMNS
+    # Behavioural sanity: EDs run hot, beds never negative, queues non-negative.
+    assert df["occupancy_pct"].between(60, 100).all()
+    assert (df["available_beds"] >= 0).all()
+    assert (df["queue_length"] >= 0).all()
+    assert df["minute_ts"].nunique() == 60
+
+
 def test_producer_consumer_aggregates(tmp_path):
     # Isolate the warehouse + bronze layer for the test.
     settings.bronze_path = tmp_path / "raw"

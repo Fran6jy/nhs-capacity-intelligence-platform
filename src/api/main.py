@@ -206,6 +206,105 @@ def stream_ae(window_minutes: int = Query(60, ge=1, le=1440)) -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# Digital twin — live department operational state + AI pressure copilot
+# --------------------------------------------------------------------------- #
+def _ops_series():
+    """National per-minute department state from the behavioural twin."""
+    return db.read_sql(
+        """
+        SELECT minute_ts,
+               SUM(arrivals)            AS arrivals,
+               SUM(admissions)          AS admissions,
+               SUM(discharges)          AS discharges,
+               SUM(available_beds)      AS available_beds,
+               SUM(queue_length)        AS queue_length,
+               SUM(ambulances_waiting)  AS ambulances_waiting,
+               ROUND(AVG(occupancy_pct)::numeric, 1) AS occupancy_pct,
+               SUM(breach_risk)         AS breach_risk
+        FROM ae_dept_state
+        GROUP BY minute_ts ORDER BY minute_ts
+        """
+    )
+
+
+@app.get("/api/ops/state", tags=["digital-twin"])
+def ops_state() -> dict:
+    """Live ED department state (arrivals, occupancy, beds, queue, ambulances)."""
+    if not db.table_exists("ae_dept_state"):
+        return {"available": False, "minutes": [], "latest": {}}
+    df = _ops_series()
+    if df.empty:
+        return {"available": False, "minutes": [], "latest": {}}
+    last = df.iloc[-1]
+    latest = {
+        "minute_ts": last["minute_ts"].isoformat(),
+        "arrivals": int(last["arrivals"]),
+        "occupancy_pct": float(last["occupancy_pct"]),
+        "available_beds": int(last["available_beds"]),
+        "queue_length": int(last["queue_length"]),
+        "ambulances_waiting": int(last["ambulances_waiting"]),
+        "breach_risk": int(last["breach_risk"]),
+    }
+    return {"available": True, "minutes": _records(df), "latest": latest}
+
+
+def _pressure_metrics(df) -> dict:
+    """Current (last 20m) vs baseline (full window) operational deltas."""
+    recent = df.tail(20)
+    base = df.head(max(len(df) - 20, 1))
+    base_arr = max(base["arrivals"].mean(), 0.01)
+    cur_arr = recent["arrivals"].mean()
+    return {
+        "arrivals_vs_baseline_pct": round((cur_arr - base_arr) / base_arr * 100, 1),
+        "occupancy_pct": round(recent["occupancy_pct"].mean(), 1),
+        "available_beds_now": int(df.iloc[-1]["available_beds"]),
+        "available_beds_change": int(df.iloc[-1]["available_beds"] - base["available_beds"].mean()),
+        "queue_now": int(df.iloc[-1]["queue_length"]),
+        "ambulances_waiting_now": int(df.iloc[-1]["ambulances_waiting"]),
+        "ambulances_vs_baseline_pct": round(
+            (recent["ambulances_waiting"].mean() - max(base["ambulances_waiting"].mean(), 0.01))
+            / max(base["ambulances_waiting"].mean(), 0.01) * 100, 1),
+    }
+
+
+@app.get("/api/ops/explain", tags=["digital-twin"])
+def ops_explain() -> dict:
+    """AI copilot: explain current A&E pressure from live twin deltas vs baseline."""
+    if not db.table_exists("ae_dept_state"):
+        raise HTTPException(404, "no live operational state — seed the digital twin")
+    df = _ops_series()
+    if df.empty:
+        raise HTTPException(404, "no live operational state")
+    m = _pressure_metrics(df)
+
+    from src.llm.rag import get_llm
+    system = (
+        "You are an NHS A&E operations copilot. Given live department metrics, explain "
+        "in 2-3 sentences why pressure is rising or easing, citing the numbers, and give a "
+        "short projection. Be concrete and concise; no preamble."
+    )
+    ctx = (
+        f"Arrivals vs baseline: {m['arrivals_vs_baseline_pct']:+}%. "
+        f"Mean bed occupancy: {m['occupancy_pct']}%. "
+        f"Available beds now: {m['available_beds_now']} (change {m['available_beds_change']:+}). "
+        f"Patients queued: {m['queue_now']}. Ambulances waiting: {m['ambulances_waiting_now']} "
+        f"({m['ambulances_vs_baseline_pct']:+}% vs baseline)."
+    )
+    try:
+        narrative = get_llm().invoke(
+            [{"role": "system", "content": system}, {"role": "user", "content": ctx}]
+        ).content
+    except Exception as exc:  # noqa: BLE001
+        log.warning("api.ops_explain_llm_failed", error=str(exc))
+        narrative = (
+            f"Arrivals are {m['arrivals_vs_baseline_pct']:+}% vs baseline with mean occupancy "
+            f"{m['occupancy_pct']}% and {m['ambulances_waiting_now']} ambulances waiting; "
+            "pressure is elevated and likely to persist without additional capacity."
+        )
+    return {"metrics": m, "narrative": narrative, "provider": settings.llm_provider}
+
+
+# --------------------------------------------------------------------------- #
 # AI insight (RAG): NL -> SQL (validated) -> Postgres -> LLM narration
 # --------------------------------------------------------------------------- #
 @app.post("/api/ask", response_model=AskResponse, tags=["ai"])

@@ -48,6 +48,11 @@ def main() -> int:
                             spread_minutes=args.spread_minutes)
     t.join(timeout=30)
 
+    # Seed the behavioural digital-twin department state (ae_dept_state).
+    from src.streaming.twin import seed as seed_twin
+    twin_rows = seed_twin(minutes=max(args.spread_minutes, 180))
+    log.info("stream_sim.twin_seeded", rows=twin_rows)
+
     con = duckdb.connect(str(settings.warehouse_path), read_only=True)
     rows = con.execute(
         "SELECT COUNT(*) AS n_minutes, SUM(attendances) AS n_attendances, "
