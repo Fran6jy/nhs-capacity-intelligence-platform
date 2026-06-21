@@ -68,7 +68,7 @@ export default function Overview() {
         ) : (
           <>
             <Kpi icon={Stethoscope} label="A&E attendances" value={kpis.data.ae_attendances} delay={0.02} />
-            <Kpi icon={BedDouble} label="Bed occupancy" value={kpis.data.avg_bed_occupancy_pct} decimals={1} suffix="%" delay={0.06} />
+            <Kpi icon={BedDouble} label="Capacity pressure" value={kpis.data.avg_bed_occupancy_pct} decimals={1} suffix="%" delay={0.06} />
             <Kpi icon={Clock} label="Waiting list" value={kpis.data.total_waiting_list} delay={0.1} />
             <Kpi icon={Users2} label="Vacancy rate" value={kpis.data.avg_vacancy_rate} decimals={1} suffix="%" delay={0.14} />
             <Kpi icon={TriangleAlert} label="Trusts in red" value={kpis.data.trusts_red} delay={0.18} />
@@ -80,7 +80,7 @@ export default function Overview() {
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <GlassCard className="xl:col-span-2" delay={0.1}>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-white">Bed occupancy & A&E demand — 90 days</h3>
+            <h3 className="font-semibold text-white">Capacity pressure & A&E demand — 90 days</h3>
           </div>
           {pressure.isLoading || !pressure.data ? (
             <Skeleton className="h-72" />
@@ -102,7 +102,7 @@ export default function Overview() {
                 <YAxis yAxisId="l" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <YAxis yAxisId="r" orientation="right" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip content={chartTooltip} />
-                <Area yAxisId="l" type="monotone" dataKey="avg_bed_occupancy_pct" name="Bed occupancy %" stroke="#00C2D1" fill="url(#occ)" strokeWidth={2} />
+                <Area yAxisId="l" type="monotone" dataKey="avg_bed_occupancy_pct" name="Capacity pressure %" stroke="#00C2D1" fill="url(#occ)" strokeWidth={2} />
                 <Area yAxisId="r" type="monotone" dataKey="ae_attendances" name="A&E attendances" stroke="#0072CE" fill="url(#ae)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>

@@ -45,6 +45,9 @@ def main() -> int:
     risk_run()
     log.info("step.recommender")
     recommender_run()
+    log.info("step.validation")
+    from src.models.validation import run_and_persist as validate
+    validate()
 
     log.info("run_pipeline.complete")
     return 0

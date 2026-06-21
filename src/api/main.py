@@ -305,6 +305,46 @@ def ops_explain() -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# Evidence & validation — real back-test accuracy + data provenance
+# --------------------------------------------------------------------------- #
+DATA_SOURCES = [
+    {"name": "NHS Organisation Data Service (ODS)", "category": "Trust roster",
+     "kind": "real", "detail": "Live register of active NHS trusts (codes, names, regions)."},
+    {"name": "Open-Meteo Archive", "category": "Weather",
+     "kind": "real", "detail": "Daily mean temperature per NHS region."},
+    {"name": "NHS RTT waiting lists", "category": "Waiting times",
+     "kind": "modelled", "detail": "Bulk Excel/CSV not machine-consumable — modelled on the real roster."},
+    {"name": "A&E attendances / ECDS", "category": "Emergency demand",
+     "kind": "modelled", "detail": "Behavioural digital-twin event stream (seasonality, bed-flow, queueing)."},
+    {"name": "Workforce statistics", "category": "Staffing",
+     "kind": "modelled", "detail": "Vacancy/staffing modelled per trust."},
+    {"name": "ONS population", "category": "Demographics",
+     "kind": "modelled", "detail": "Regional population (ONS API reachable; modelled in demo)."},
+]
+
+
+@app.get("/api/validation/sources", tags=["validation"])
+def validation_sources() -> list[dict]:
+    return DATA_SOURCES
+
+
+@app.get("/api/validation/metrics", tags=["validation"])
+def validation_metrics() -> dict:
+    if not db.table_exists("model_metrics"):
+        return {"available": False, "metrics": []}
+    df = db.read_sql("SELECT target, model, accuracy, mae, mape, n_eval, holdout_days FROM model_metrics")
+    return {"available": True, "metrics": _records(df)}
+
+
+@app.get("/api/validation/forecast-actual", tags=["validation"])
+def validation_forecast_actual() -> dict:
+    if not db.table_exists("model_forecast_actual"):
+        return {"available": False, "series": []}
+    df = db.read_sql("SELECT target, date, actual, predicted FROM model_forecast_actual ORDER BY date")
+    return {"available": True, "series": _records(df)}
+
+
+# --------------------------------------------------------------------------- #
 # AI insight (RAG): NL -> SQL (validated) -> Postgres -> LLM narration
 # --------------------------------------------------------------------------- #
 @app.post("/api/ask", response_model=AskResponse, tags=["ai"])

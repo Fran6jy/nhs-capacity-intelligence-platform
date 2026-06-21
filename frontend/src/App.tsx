@@ -10,6 +10,7 @@ const Forecasting = lazy(() => import("./pages/Forecasting"));
 const Workforce = lazy(() => import("./pages/Workforce"));
 const RiskMap = lazy(() => import("./pages/RiskMap"));
 const AiInsights = lazy(() => import("./pages/AiInsights"));
+const Evidence = lazy(() => import("./pages/Evidence"));
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="/workforce" element={<Workforce />} />
             <Route path="/risk" element={<RiskMap />} />
             <Route path="/ai" element={<AiInsights />} />
+            <Route path="/evidence" element={<Evidence />} />
           </Routes>
         </Suspense>
       </Layout>

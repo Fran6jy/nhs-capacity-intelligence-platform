@@ -147,6 +147,16 @@ export const useOpsState = () =>
 export const useOpsExplain = () =>
   useMutation({ mutationFn: () => get<OpsExplain>("/api/ops/explain") });
 
+export interface DataSource { name: string; category: string; kind: "real" | "modelled"; detail: string; }
+export interface ModelMetric { target: string; model: string; accuracy: number; mae: number; mape: number; n_eval: number; holdout_days: number; }
+export interface ForecastActual { target: string; date: string; actual: number; predicted: number; }
+export const useValidationSources = () =>
+  useQuery({ queryKey: ["val-sources"], queryFn: () => get<DataSource[]>("/api/validation/sources") });
+export const useValidationMetrics = () =>
+  useQuery({ queryKey: ["val-metrics"], queryFn: () => get<{ available: boolean; metrics: ModelMetric[] }>("/api/validation/metrics") });
+export const useForecastActual = () =>
+  useQuery({ queryKey: ["val-fa"], queryFn: () => get<{ available: boolean; series: ForecastActual[] }>("/api/validation/forecast-actual") });
+
 export const useAsk = () =>
   useMutation({
     mutationFn: async (question: string): Promise<AskResponse> => {

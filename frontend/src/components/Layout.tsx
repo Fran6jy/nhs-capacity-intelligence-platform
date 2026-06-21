@@ -8,6 +8,7 @@ import {
   Map,
   Sparkles,
   HeartPulse,
+  ShieldCheck,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -17,6 +18,7 @@ const NAV = [
   { to: "/workforce", label: "Workforce", icon: Users },
   { to: "/risk", label: "Risk Map", icon: Map },
   { to: "/ai", label: "AI Insights", icon: Sparkles },
+  { to: "/evidence", label: "Evidence & Validation", icon: ShieldCheck },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
