@@ -18,6 +18,9 @@ truth for both the web app and Power BI.
    * `v_forecast_long`       — forecasts (target × horizon)
    * `recommendation`        — prescriptive actions
    * `dim_region`, `dim_hospital` — for slicers / maps
+   * `ae_dept_state`         — live A&E digital-twin (occupancy, queue, ambulances)
+   * `model_metrics`         — back-tested accuracy per model
+   * `model_forecast_actual` — predicted-vs-actual hold-out series
 
 > `nhs_supabase.pbids` targets the IPv4 **session pooler** host (Power BI is
 > IPv4-only). Edit the `server` line if your Supabase region differs.
@@ -27,17 +30,27 @@ truth for both the web app and Power BI.
 Create these in a `_Measures` table (Modeling → New measure):
 
 ```DAX
-Latest Date          = MAX ( v_national_pressure[date_key] )
-Avg Bed Occupancy %  = CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ),
-                                    v_national_pressure[date_key] = [Latest Date] )
+Latest Date        = MAX ( v_national_pressure[date_key] )
+
+-- NB: avg_bed_occupancy_pct is a DEMAND-vs-CAPACITY ratio (can exceed 100%),
+-- so surface it as "Capacity Pressure", not literal occupancy.
+Capacity Pressure %  = CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ),
+                                   v_national_pressure[date_key] = [Latest Date] )
 Total Waiting List   = CALCULATE ( SUM ( v_national_pressure[total_waiting_list] ),
                                    v_national_pressure[date_key] = [Latest Date] )
 A&E Attendances      = CALCULATE ( SUM ( v_national_pressure[ae_attendances] ),
                                    v_national_pressure[date_key] = [Latest Date] )
 Trusts in Red        = CALCULATE ( COUNTROWS ( v_top_risk_trusts ),
                                    v_top_risk_trusts[classification] = "Red" )
-Occupancy 7d Avg     = AVERAGEX ( DATESINPERIOD ( v_national_pressure[date_key], [Latest Date], -7, DAY ),
-                                  CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ) ) )
+
+-- Live A&E digital twin (latest minute)
+Live Occupancy %     = CALCULATE ( AVERAGE ( ae_dept_state[occupancy_pct] ),
+                                   ae_dept_state[minute_ts] = MAX ( ae_dept_state[minute_ts] ) )
+Ambulances Waiting   = CALCULATE ( SUM ( ae_dept_state[ambulances_waiting] ),
+                                   ae_dept_state[minute_ts] = MAX ( ae_dept_state[minute_ts] ) )
+
+-- Evidence & validation
+Model Accuracy %     = AVERAGE ( model_metrics[accuracy] )   -- card per `target`
 ```
 
 ## Suggested report pages (mirror the web app)
@@ -50,6 +63,10 @@ Occupancy 7d Avg     = AVERAGEX ( DATESINPERIOD ( v_national_pressure[date_key],
 * **Workforce** — bar of vacancy rate by region; `recommendation` table filtered
   to High severity.
 * **Risk map** — filled map on `dim_region` shaded by `avg_score`.
+* **Live operations** — cards from `ae_dept_state` ([Live Occupancy %],
+  [Ambulances Waiting]); line of `occupancy_pct` + `queue_length` over `minute_ts`.
+* **Evidence & validation** — `model_metrics` accuracy by `target` (bar/cards);
+  `model_forecast_actual` line of `actual` vs `predicted` over `date`.
 
 ## Refresh
 
