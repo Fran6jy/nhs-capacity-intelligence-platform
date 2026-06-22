@@ -35,30 +35,35 @@ truth for both the web app and Power BI.
 
 ## Starter DAX measures
 
-Create these in a `_Measures` table (Modeling → New measure):
+**Create each one separately** — Modeling → **New measure**, paste a *single*
+`Name = …` line, press Enter, repeat. (Pasting the whole list into one measure
+is a syntax error.) `Latest Date` must be created first — three others use it.
+`avg_bed_occupancy_pct` is a demand-vs-capacity ratio (can exceed 100%), so it's
+surfaced as **Capacity Pressure**, not literal occupancy.
 
 ```DAX
-Latest Date        = MAX ( v_national_pressure[date_key] )
-
--- NB: avg_bed_occupancy_pct is a DEMAND-vs-CAPACITY ratio (can exceed 100%),
--- so surface it as "Capacity Pressure", not literal occupancy.
-Capacity Pressure %  = CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ),
-                                   v_national_pressure[date_key] = [Latest Date] )
-Total Waiting List   = CALCULATE ( SUM ( v_national_pressure[total_waiting_list] ),
-                                   v_national_pressure[date_key] = [Latest Date] )
-A&E Attendances      = CALCULATE ( SUM ( v_national_pressure[ae_attendances] ),
-                                   v_national_pressure[date_key] = [Latest Date] )
-Trusts in Red        = CALCULATE ( COUNTROWS ( v_top_risk_trusts ),
-                                   v_top_risk_trusts[classification] = "Red" )
-
--- Live A&E digital twin (latest minute)
-Live Occupancy %     = CALCULATE ( AVERAGE ( ae_dept_state[occupancy_pct] ),
-                                   ae_dept_state[minute_ts] = MAX ( ae_dept_state[minute_ts] ) )
-Ambulances Waiting   = CALCULATE ( SUM ( ae_dept_state[ambulances_waiting] ),
-                                   ae_dept_state[minute_ts] = MAX ( ae_dept_state[minute_ts] ) )
-
--- Evidence & validation
-Model Accuracy %     = AVERAGE ( model_metrics[accuracy] )   -- card per `target`
+Latest Date = MAX ( v_national_pressure[date_key] )
+```
+```DAX
+Capacity Pressure % = CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ), v_national_pressure[date_key] = [Latest Date] )
+```
+```DAX
+Total Waiting List = CALCULATE ( SUM ( v_national_pressure[total_waiting_list] ), v_national_pressure[date_key] = [Latest Date] )
+```
+```DAX
+A&E Attendances = CALCULATE ( SUM ( v_national_pressure[ae_attendances] ), v_national_pressure[date_key] = [Latest Date] )
+```
+```DAX
+Trusts in Red = CALCULATE ( COUNTROWS ( v_top_risk_trusts ), v_top_risk_trusts[classification] = "Red" )
+```
+```DAX
+Live Occupancy % = VAR L = MAX ( ae_dept_state[minute_ts] ) RETURN CALCULATE ( AVERAGE ( ae_dept_state[occupancy_pct] ), ae_dept_state[minute_ts] = L )
+```
+```DAX
+Ambulances Waiting = VAR L = MAX ( ae_dept_state[minute_ts] ) RETURN CALCULATE ( SUM ( ae_dept_state[ambulances_waiting] ), ae_dept_state[minute_ts] = L )
+```
+```DAX
+Model Accuracy % = AVERAGE ( model_metrics[accuracy] )
 ```
 
 ## Suggested report pages (mirror the web app)
