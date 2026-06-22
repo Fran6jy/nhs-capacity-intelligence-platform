@@ -8,10 +8,18 @@ truth for both the web app and Power BI.
 1. Double-click **`nhs_supabase.pbids`** — Power BI Desktop opens pre-connected to
    the Supabase Postgres host.
 2. When prompted for credentials, choose **Database** and enter:
-   * **User name:** `postgres.dtxavwlqmefuhyphjikk`
-   * **Password:** your Supabase database password
-   (If asked, set encryption to *Enabled* — Supabase requires SSL.)
-3. In the Navigator, tick these analytics views + tables, then **Load**:
+   * **User name:** `postgres.dtxavwlqmefuhyphjikk` (the pooler form — note the dot + project ref, *not* plain `postgres`)
+   * **Password:** your Supabase database password (type it **literally** — no URL-encoding)
+3. **⚠️ Uncheck "Encrypt connection".** Power BI's PostgreSQL driver can't validate
+   the Supabase pooler certificate, so leaving it on fails with
+   *"The remote certificate is invalid according to the validation procedure."*
+   Unchecking it lets the handshake through. (Use **Power BI Desktop**, not the web
+   Service — the browser connector has no unencrypted option and needs a data gateway.)
+
+> **Offline fallback:** if you'd rather skip the live DB entirely, open
+> `nhs_powerbi_data.xlsx` (in this folder) via **Get data → Excel** — same tables,
+> no connection needed. Regenerate it with `python scripts/export_powerbi.py`.
+4. In the Navigator, tick these analytics views + tables, then **Load**:
    * `v_national_pressure`   — national daily pressure
    * `v_regional_risk_latest` — Red/Amber/Green by region
    * `v_top_risk_trusts`     — top at-risk trusts
