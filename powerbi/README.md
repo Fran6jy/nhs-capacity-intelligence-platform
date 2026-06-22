@@ -37,21 +37,21 @@ truth for both the web app and Power BI.
 
 **Create each one separately** — Modeling → **New measure**, paste a *single*
 `Name = …` line, press Enter, repeat. (Pasting the whole list into one measure
-is a syntax error.) `Latest Date` must be created first — three others use it.
+is a syntax error.) Each measure is **self-contained** (`VAR L = MAX(...)`) so
+there's no cross-measure dependency to break. Make sure the table names match
+your model — if Power BI imported them as `public <name>`, either rename the
+tables to drop the prefix or quote them, e.g. `'public v_national_pressure'`.
 `avg_bed_occupancy_pct` is a demand-vs-capacity ratio (can exceed 100%), so it's
 surfaced as **Capacity Pressure**, not literal occupancy.
 
 ```DAX
-Latest Date = MAX ( v_national_pressure[date_key] )
+Capacity Pressure % = VAR L = MAX ( v_national_pressure[date_key] ) RETURN CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ), v_national_pressure[date_key] = L )
 ```
 ```DAX
-Capacity Pressure % = CALCULATE ( AVERAGE ( v_national_pressure[avg_bed_occupancy_pct] ), v_national_pressure[date_key] = [Latest Date] )
+Total Waiting List = VAR L = MAX ( v_national_pressure[date_key] ) RETURN CALCULATE ( SUM ( v_national_pressure[total_waiting_list] ), v_national_pressure[date_key] = L )
 ```
 ```DAX
-Total Waiting List = CALCULATE ( SUM ( v_national_pressure[total_waiting_list] ), v_national_pressure[date_key] = [Latest Date] )
-```
-```DAX
-A&E Attendances = CALCULATE ( SUM ( v_national_pressure[ae_attendances] ), v_national_pressure[date_key] = [Latest Date] )
+A&E Attendances = VAR L = MAX ( v_national_pressure[date_key] ) RETURN CALCULATE ( SUM ( v_national_pressure[ae_attendances] ), v_national_pressure[date_key] = L )
 ```
 ```DAX
 Trusts in Red = CALCULATE ( COUNTROWS ( v_top_risk_trusts ), v_top_risk_trusts[classification] = "Red" )
@@ -61,6 +61,12 @@ Live Occupancy % = VAR L = MAX ( ae_dept_state[minute_ts] ) RETURN CALCULATE ( A
 ```
 ```DAX
 Ambulances Waiting = VAR L = MAX ( ae_dept_state[minute_ts] ) RETURN CALCULATE ( SUM ( ae_dept_state[ambulances_waiting] ), ae_dept_state[minute_ts] = L )
+```
+```DAX
+Beds Available Now = VAR L = MAX ( ae_dept_state[minute_ts] ) RETURN CALCULATE ( SUM ( ae_dept_state[available_beds] ), ae_dept_state[minute_ts] = L )
+```
+```DAX
+Patients Queued Now = VAR L = MAX ( ae_dept_state[minute_ts] ) RETURN CALCULATE ( SUM ( ae_dept_state[queue_length] ), ae_dept_state[minute_ts] = L )
 ```
 ```DAX
 Model Accuracy % = AVERAGE ( model_metrics[accuracy] )
