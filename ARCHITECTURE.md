@@ -99,10 +99,12 @@ limit regardless of peer rank:
 |---|---|---|
 | Bed occupancy | ≥ 92% | ≥ 95% |
 | Vacancy rate | ≥ 12% | ≥ 15% |
-| A&E surge (vs 7-day baseline) | ≥ +15% | ≥ +30% |
 
-The final classification is the **worse** of the peer-relative and absolute
-verdicts, and `components_json.trigger` records which path drove it.
+Only true percentages with recognised safety lines sit in the overlay. The A&E
+surge index is a scale-relative signal, so it stays in the z-scored composite
+and is deliberately excluded from the absolute thresholds. The final
+classification is the **worse** of the peer-relative and absolute verdicts, and
+`components_json.trigger` records which path drove it.
 
 Computed daily per `hospital_id`, also aggregated to region.
 

@@ -17,11 +17,13 @@ absolute thresholds. Absolute thresholds vary by trust type (specialist vs
 district general) and would mask structural issues.
 
 An **absolute safety overlay** sits on top of the peer-relative score: any
-trust breaching a hard limit (occupancy >= 95%, vacancy >= 15%, A&E surge
->= +30%) is escalated regardless of how it ranks against its peers. This
-covers the blind spot of a purely relative index — a system-wide surge where
-*every* trust is in trouble would otherwise average out to Green. The final
-classification is the worse of the peer-relative and absolute verdicts.
+trust breaching a hard limit (occupancy >= 95% or vacancy >= 15%) is escalated
+regardless of how it ranks against its peers. This covers the blind spot of a
+purely relative index — a system-wide surge where *every* trust is in trouble
+would otherwise average out to Green. Only true percentages with recognised
+safety lines go in the overlay; the A&E surge index is scale-relative and
+stays in the z-scored composite only. The final classification is the worse
+of the peer-relative and absolute verdicts.
 """
 from __future__ import annotations
 
@@ -51,15 +53,19 @@ Z_CLIP = 3.0
 # Absolute safety overlay — breaches escalate a trust regardless of how it
 # ranks against its peers. Peer-relative z-scores find the *worst* trust this
 # week; these catch a system-wide surge where everyone is in trouble at once.
+#
+# Only metrics whose *absolute* value is clinically meaningful belong here:
+# bed occupancy % and vacancy % are true percentages with recognised safety
+# lines. The A&E surge index is a scale-relative signal (its magnitude depends
+# on the aggregation grain), so it stays in the z-scored composite only and is
+# deliberately excluded from the absolute overlay.
 ABSOLUTE_RED = {
     "bed_occupancy": 95.0,   # % — sustained >95% is the recognised safety ceiling
     "vacancy_rate": 15.0,    # % — chronic understaffing
-    "ae_surge": 0.30,        # +30% vs the trust's own 7-day baseline
 }
 ABSOLUTE_AMBER = {
     "bed_occupancy": 92.0,
     "vacancy_rate": 12.0,
-    "ae_surge": 0.15,
 }
 
 _SEVERITY = {"Green": 0, "Amber": 1, "Red": 2}
@@ -87,14 +93,12 @@ def _absolute_class(row: pd.Series) -> str:
     breaches_red = (
         row["bed_occupancy"] >= ABSOLUTE_RED["bed_occupancy"]
         or row["vacancy_rate"] >= ABSOLUTE_RED["vacancy_rate"]
-        or row["ae_surge_index"] >= ABSOLUTE_RED["ae_surge"]
     )
     if breaches_red:
         return "Red"
     breaches_amber = (
         row["bed_occupancy"] >= ABSOLUTE_AMBER["bed_occupancy"]
         or row["vacancy_rate"] >= ABSOLUTE_AMBER["vacancy_rate"]
-        or row["ae_surge_index"] >= ABSOLUTE_AMBER["ae_surge"]
     )
     return "Amber" if breaches_amber else "Green"
 
