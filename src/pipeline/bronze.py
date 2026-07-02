@@ -173,7 +173,7 @@ def ingest_hes(period_start: date, period_end: date) -> pd.DataFrame:
                             "date": period_start + timedelta(days=d),
                             "admissions": random.randint(0, 60),
                             "discharges": random.randint(0, 60),
-                            "bed_occupancy_count": int(beds * random.uniform(0.55, 0.99)),
+                            "bed_occupancy_count": int(beds * random.uniform(0.82, 0.97)),
                             "ae_attendances": random.randint(40, 360) if is_em else 0,
                             "referrals": random.randint(0, 90),
                         }
@@ -268,7 +268,7 @@ def ingest_dimensions(period_start: date, period_end: date) -> dict[str, pd.Data
                 "trust_name": name,
                 "region_id": _region_code(reg),
                 "hospital_type": htype,
-                "bed_capacity": beds // 2,
+                "bed_capacity": beds,
             }
             for i, (code, name, reg, htype, beds) in enumerate(NHS_TRUSTS)
             for _ in range(1)

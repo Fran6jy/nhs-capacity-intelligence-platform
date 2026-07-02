@@ -83,11 +83,26 @@ score = 0.30 * z(bed_occupancy_pct)
       + 0.15 * z(ae_surge_index)
 ```
 
-| Score | Classification |
+| Score | Classification (peer-relative) |
 |---|---|
 | < 0.0 | 🟢 Green |
 | 0.0 – 1.0 | 🟡 Amber |
 | ≥ 1.0 | 🔴 Red |
+
+**Absolute safety overlay.** Because every component is z-scored against the
+national peer distribution, the score alone finds *relative* outliers but is
+blind to a system-wide surge (if every trust is at 99% occupancy, the z-scores
+still centre on zero). An absolute overlay escalates any trust breaching a hard
+limit regardless of peer rank:
+
+| Metric | 🟡 Amber | 🔴 Red |
+|---|---|---|
+| Bed occupancy | ≥ 92% | ≥ 95% |
+| Vacancy rate | ≥ 12% | ≥ 15% |
+| A&E surge (vs 7-day baseline) | ≥ +15% | ≥ +30% |
+
+The final classification is the **worse** of the peer-relative and absolute
+verdicts, and `components_json.trigger` records which path drove it.
 
 Computed daily per `hospital_id`, also aggregated to region.
 
