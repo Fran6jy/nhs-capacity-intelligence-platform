@@ -41,6 +41,7 @@ jobs:
             echo "::error::DATABASE_URL secret not set — add it in Settings → Secrets and variables → Actions."
             exit 1
           fi
+          python scripts/check_database_url.py
           python scripts/run_pipeline.py
           python scripts/run_stream_sim.py --events 5000 --rate 3000 --spread-minutes 45
           python scripts/publish_to_postgres.py
