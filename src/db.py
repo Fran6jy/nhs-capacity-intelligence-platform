@@ -10,15 +10,20 @@ FastAPI backend, the publisher, and any scripts share pooled connections.
 """
 from __future__ import annotations
 
+import time
 from functools import lru_cache
 
 import pandas as pd
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import OperationalError
 
 from src.config import settings
 from src.utils.logging import get_logger
 
 log = get_logger("db")
+
+WRITE_CHUNK_SIZE = 200
+WRITE_MAX_ATTEMPTS = 4
 
 
 @lru_cache(maxsize=1)
@@ -52,10 +57,40 @@ def execute_script(sql: str) -> int:
 
 
 def write_table(df: pd.DataFrame, table: str, if_exists: str = "append") -> int:
-    """Bulk-load a DataFrame into a table (multi-row inserts)."""
-    with get_engine().begin() as conn:
-        df.to_sql(table, conn, if_exists=if_exists, index=False, method="multi", chunksize=1000)
-    return len(df)
+    """Bulk-load a DataFrame, retrying transient managed-Postgres failures.
+
+    Each attempt is one transaction, so a timed-out append is rolled back before
+    retrying and cannot leave a partially loaded table behind. Smaller inserts
+    also stay comfortably below Supabase's per-statement timeout.
+    """
+    for attempt in range(1, WRITE_MAX_ATTEMPTS + 1):
+        try:
+            with get_engine().begin() as conn:
+                df.to_sql(
+                    table,
+                    conn,
+                    if_exists=if_exists,
+                    index=False,
+                    method="multi",
+                    chunksize=WRITE_CHUNK_SIZE,
+                )
+            return len(df)
+        except OperationalError as exc:
+            if attempt == WRITE_MAX_ATTEMPTS:
+                raise
+            delay = 2 ** attempt
+            log.warning(
+                "db.write_retry",
+                table=table,
+                attempt=attempt,
+                max_attempts=WRITE_MAX_ATTEMPTS,
+                delay_seconds=delay,
+                error=str(exc).splitlines()[0],
+            )
+            get_engine().dispose()
+            time.sleep(delay)
+
+    raise RuntimeError("unreachable")
 
 
 def table_exists(table: str) -> bool:

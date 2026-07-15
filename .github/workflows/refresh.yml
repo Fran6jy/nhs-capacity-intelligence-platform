@@ -1,7 +1,7 @@
 name: Refresh data
 
 # Rebuilds the medallion gold warehouse, re-seeds the live A&E stream, and
-# publishes everything into Supabase — every 2 hours. The API and frontend read
+# publishes everything into Supabase — every 12 hours. The API and frontend read
 # Supabase live, so no redeploy is needed; the data simply stays current.
 #
 # Required repository secret:
@@ -9,7 +9,7 @@ name: Refresh data
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # every 2 hours (UTC)
+    - cron: "0 */12 * * *"   # every 12 hours (UTC)
   workflow_dispatch:
 
 concurrency:

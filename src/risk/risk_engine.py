@@ -203,7 +203,7 @@ def compute_risk(fact: pd.DataFrame) -> pd.DataFrame:
     components["classification_absolute"] = absolute_class.values
     components["classification"] = [
         _SEVERITY_INV[max(_SEVERITY[r], _SEVERITY[a])]
-        for r, a in zip(relative_class, absolute_class)
+        for r, a in zip(relative_class, absolute_class, strict=False)
     ]
     components["risk_id"] = range(1, len(components) + 1)
     components["components_json"] = components.apply(
