@@ -33,6 +33,24 @@ python scripts/run_pipeline.py        # rebuild the gold warehouse (DuckDB)
 python scripts/publish_to_postgres.py # load it into Supabase
 ```
 
+### Database access posture
+
+All 12 public tables have **RLS enabled with no policies**, and the `anon` and
+`authenticated` roles hold no grants. That is deliberate, not an oversight:
+
+* Nothing in this project uses the Supabase client libraries. The React SPA
+  talks only to the FastAPI backend, so the PostgREST roles need no access at
+  all — and "no policies" is a stronger, simpler guarantee than a read policy
+  nobody exercises.
+* The API connects as `postgres`, which owns the tables, and table owners
+  bypass RLS unless `FORCE ROW LEVEL SECURITY` is set. So the lockdown closes
+  the anon-key surface without touching the application.
+
+Supabase's linter reports `rls_enabled_no_policy` at INFO level for these
+tables. That finding is expected here and should stay: it means the tables are
+unreachable through the public API, which is the intent. Should you ever add a
+Supabase-client feature, add a `SELECT`-only policy for `anon` at that point.
+
 ### Least-privilege role for the AI query path (recommended)
 
 `/api/ask` can execute model-generated SQL. Three layers guard it: the validator in
