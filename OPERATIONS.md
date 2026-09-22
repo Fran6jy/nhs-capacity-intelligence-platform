@@ -20,6 +20,33 @@ The API is on Render's free plan and sleeps when idle. A first request after
 that takes **~150 seconds**. That is a cold start, not an outage — don't
 diagnose it as one.
 
+### How each piece actually redeploys
+
+This matters because the two are wired differently:
+
+* **API** — Render's own GitHub integration (`autoDeploy: true` in
+  `render.yaml`). Pushes to `main` deploy themselves. Nothing to maintain.
+* **Frontend** — depends on whether the Vercel project is Git-connected. If it
+  was created by a CLI `vercel deploy` rather than a Git import, **it has no
+  trigger and will silently sit at whatever was last pushed by hand**, which is
+  how the live site ended up months behind `main`. Confirm under Vercel →
+  Settings → Git; if no repository is connected, connect it (production branch
+  `main`, Root Directory `frontend`).
+
+`.github/workflows/deploy.yml` can trigger either via `RENDER_DEPLOY_HOOK` /
+`VERCEL_DEPLOY_HOOK`, but every step is guarded on its secret and **does not
+fail when one is missing** — it raises a warning annotation instead. A green
+tick on that workflow does not by itself mean anything was deployed; read the
+run summary. Deploy Hooks also require a Git-connected Vercel project, so
+connecting the repo is the fix either way.
+
+To publish the frontend by hand from a laptop:
+
+```powershell
+cd frontend
+vercel --prod
+```
+
 ### Database roles
 
 | Role | Used by | Can write? |
@@ -197,6 +224,12 @@ The URLs carry a rotating token (`...-97ylx5.zip`) and are **discovered by
 scraping**, never constructed. If discovery breaks, NHS England has changed
 their page markup — update `AE_CSV_LINK` / `RTT_ZIP_LINK` in
 `src/ingestion/nhs_england.py`.
+
+### The UI is missing a change that is definitely on `main`
+
+The frontend did not redeploy. See §1 — check Vercel's Git connection, and
+read the Deploy workflow's run summary rather than trusting its green tick.
+`vercel --prod` from `frontend/` publishes immediately.
 
 ### The API is slow or times out on first request
 
