@@ -84,6 +84,44 @@ export interface StreamAe {
   minutes: StreamMinute[];
   totals: { attendances: number; ambulance: number; breach_risk: number };
 }
+// ---- real NHS England published statistics ----
+export interface RttNational {
+  period: string;
+  total_waiting: number;
+  over_18_weeks: number;
+  over_52_weeks: number;
+  within_18_weeks_pct: number;
+}
+export interface RttSpecialty {
+  specialty_name: string;
+  total_waiting: number;
+  over_52_weeks: number;
+  median_wait_weeks: number;
+}
+export interface NhsRtt {
+  available: boolean;
+  national?: RttNational[];
+  by_specialty?: RttSpecialty[];
+}
+
+export interface AeNational {
+  period: string;
+  attendances: number;
+  emergency_admissions: number;
+  twelve_hour_waits: number;
+  four_hour_performance_pct: number;
+}
+export interface AeRegion {
+  region_name: string;
+  attendances: number;
+  four_hour_performance_pct: number;
+}
+export interface NhsAe {
+  available: boolean;
+  national?: AeNational[];
+  by_region?: AeRegion[];
+}
+
 /** Which trust tier answered — see src/llm/nl2sql.py. */
 export type AskSource = "curated" | "generated" | "unanswerable";
 
@@ -162,6 +200,10 @@ export const useValidationMetrics = () =>
   useQuery({ queryKey: ["val-metrics"], queryFn: () => get<{ available: boolean; metrics: ModelMetric[] }>("/api/validation/metrics") });
 export const useForecastActual = () =>
   useQuery({ queryKey: ["val-fa"], queryFn: () => get<{ available: boolean; series: ForecastActual[] }>("/api/validation/forecast-actual") });
+export const useNhsRtt = () =>
+  useQuery({ queryKey: ["nhs-rtt"], queryFn: () => get<NhsRtt>("/api/nhs/rtt?limit=8") });
+export const useNhsAe = () =>
+  useQuery({ queryKey: ["nhs-ae"], queryFn: () => get<NhsAe>("/api/nhs/ae?limit=7") });
 
 export const useAsk = () =>
   useMutation({
