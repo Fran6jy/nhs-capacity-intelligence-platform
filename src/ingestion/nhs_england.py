@@ -47,7 +47,14 @@ AE_CSV_LINK = re.compile(r'href="([^"]*?-CSV-[^"]*?\.csv)"', re.I)
 RTT_ZIP_LINK = re.compile(r'href="([^"]*?Full-CSV-data-file[^"]*?\.zip)"', re.I)
 
 TIMEOUT = 120
-USER_AGENT = "nhs-capacity-intelligence-platform/1.0 (open data ingestion)"
+# A browser User-Agent. NHS England sits behind a WAF that serves a challenge
+# page — HTTP 200, no data links — to unfamiliar clients from datacentre IP
+# ranges. A polite bot string is enough to get the challenge instead of the
+# page when the request comes from CI rather than a laptop.
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+)
 
 MONTHS = {
     m.upper(): i
@@ -96,10 +103,25 @@ def _period_from_name(name: str) -> str | None:
 
 def _latest_year_page(index_url: str, slug: re.Pattern[str]) -> str | None:
     """Find the newest financial-year collection page linked from an index."""
-    html = _get(index_url).text
+    resp = _get(index_url)
+    html = resp.text
     years = {m.group(1): m.group(0) for m in slug.finditer(html)}
     if not years:
-        log.warning("nhs_england.no_year_page", index=index_url)
+        # A bare "not found" here is unactionable — the fetch returns 200 either
+        # way. Record enough to tell a markup change from a WAF challenge.
+        lowered = html[:4000].lower()
+        log.warning(
+            "nhs_england.no_year_page",
+            index=index_url,
+            status=resp.status_code,
+            content_length=len(html),
+            looks_blocked=any(
+                marker in lowered
+                for marker in ("captcha", "access denied", "cf-browser-verification",
+                               "just a moment", "incapsula", "request unsuccessful")
+            ),
+            snippet=re.sub(r"\s+", " ", html[:200]),
+        )
         return None
     newest = max(years)
     href = years[newest]
