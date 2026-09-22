@@ -76,10 +76,25 @@ class Release:
     period: str  # YYYY-MM
 
 
+class NhsEnglandUnavailable(RuntimeError):
+    """The publisher returned a bot-mitigation response instead of content."""
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def _get(url: str) -> requests.Response:
     resp = requests.get(url, timeout=TIMEOUT, headers={"User-Agent": USER_AGENT})
     resp.raise_for_status()
+
+    # NHS England's WAF answers datacentre IP ranges — GitHub Actions runners
+    # among them — with `202 Accepted` and an empty body. That is a success
+    # status, so raise_for_status() lets it through and the caller sees a page
+    # with no links, indistinguishable from a markup change. Name it instead.
+    if resp.status_code == 202 or not resp.content:
+        raise NhsEnglandUnavailable(
+            f"blocked by bot mitigation (HTTP {resp.status_code}, "
+            f"{len(resp.content)} bytes) — run the ingestion from an "
+            f"un-blocked network: {url}"
+        )
     return resp
 
 
@@ -109,17 +124,11 @@ def _latest_year_page(index_url: str, slug: re.Pattern[str]) -> str | None:
     if not years:
         # A bare "not found" here is unactionable — the fetch returns 200 either
         # way. Record enough to tell a markup change from a WAF challenge.
-        lowered = html[:4000].lower()
         log.warning(
             "nhs_england.no_year_page",
             index=index_url,
             status=resp.status_code,
             content_length=len(html),
-            looks_blocked=any(
-                marker in lowered
-                for marker in ("captcha", "access denied", "cf-browser-verification",
-                               "just a moment", "incapsula", "request unsuccessful")
-            ),
             snippet=re.sub(r"\s+", " ", html[:200]),
         )
         return None
@@ -201,6 +210,9 @@ def fetch_ae_monthly(months: int = 3) -> pd.DataFrame:
     """Provider-level A&E activity for the most recent published months."""
     try:
         releases = _discover(AE_INDEX, AE_YEAR_SLUG, AE_CSV_LINK)[:months]
+    except NhsEnglandUnavailable as exc:
+        log.warning("nhs_england.blocked", dataset="ae", error=str(exc))
+        return pd.DataFrame()
     except Exception as exc:  # noqa: BLE001
         log.warning("nhs_england.ae_discovery_failed", error=str(exc))
         return pd.DataFrame()
@@ -299,6 +311,9 @@ def fetch_rtt_monthly(months: int = 1) -> pd.DataFrame:
     """
     try:
         releases = _discover(RTT_INDEX, RTT_YEAR_SLUG, RTT_ZIP_LINK)[:months]
+    except NhsEnglandUnavailable as exc:
+        log.warning("nhs_england.blocked", dataset="rtt", error=str(exc))
+        return pd.DataFrame()
     except Exception as exc:  # noqa: BLE001
         log.warning("nhs_england.rtt_discovery_failed", error=str(exc))
         return pd.DataFrame()
