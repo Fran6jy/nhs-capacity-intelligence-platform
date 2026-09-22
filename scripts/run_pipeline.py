@@ -45,6 +45,9 @@ def main() -> int:
     risk_run()
     log.info("step.recommender")
     recommender_run()
+    log.info("step.nhs_real")
+    from src.pipeline.nhs_real import run as nhs_real_run
+    nhs_real_run()
     log.info("step.validation")
     from src.models.validation import run_and_persist as validate
     validate()

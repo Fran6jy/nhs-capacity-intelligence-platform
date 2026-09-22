@@ -33,6 +33,7 @@ TABLES = [
 OPTIONAL_TABLES = [
     "ae_stream_agg", "ae_dept_state",   # present after the streaming sim runs
     "model_metrics", "model_forecast_actual",  # present after validation runs
+    "nhs_rtt_monthly", "nhs_ae_monthly",  # real NHS England open statistics
 ]
 
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"

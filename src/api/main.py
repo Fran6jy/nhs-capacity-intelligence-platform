@@ -348,10 +348,15 @@ DATA_SOURCES = [
      "kind": "real", "detail": "Live register of active NHS trusts (codes, names, regions)."},
     {"name": "Open-Meteo Archive", "category": "Weather",
      "kind": "real", "detail": "Daily mean temperature per NHS region."},
-    {"name": "NHS RTT waiting lists", "category": "Waiting times",
-     "kind": "modelled", "detail": "Bulk Excel/CSV not machine-consumable — modelled on the real roster."},
-    {"name": "A&E attendances / ECDS", "category": "Emergency demand",
-     "kind": "modelled", "detail": "Behavioural digital-twin event stream (seasonality, bed-flow, queueing)."},
+    {"name": "NHS England RTT waiting times", "category": "Waiting times",
+     "kind": "real", "detail": "Monthly incomplete-pathway waiting list by provider and "
+                               "treatment function, from the published full CSV extract."},
+    {"name": "NHS England A&E activity", "category": "Emergency demand",
+     "kind": "real", "detail": "Monthly attendances, four-hour breaches, 12-hour DTA waits "
+                               "and emergency admissions by provider."},
+    {"name": "A&E minute-level department state", "category": "Live operations",
+     "kind": "modelled", "detail": "Behavioural digital-twin event stream (seasonality, "
+                                   "bed-flow, queueing). NHS England publishes monthly, not live."},
     {"name": "Workforce statistics", "category": "Staffing",
      "kind": "modelled", "detail": "Vacancy/staffing modelled per trust."},
     {"name": "ONS population", "category": "Demographics",
@@ -362,6 +367,81 @@ DATA_SOURCES = [
 @app.get("/api/validation/sources", tags=["validation"])
 def validation_sources() -> list[dict]:
     return DATA_SOURCES
+
+
+# --------------------------------------------------------------------------- #
+# Real NHS England open statistics (monthly, provider level)
+# --------------------------------------------------------------------------- #
+@app.get("/api/nhs/rtt", tags=["real-data"])
+def nhs_rtt(limit: int = Query(20, ge=1, le=100)) -> dict:
+    """Published RTT waiting list, nationally and by specialty."""
+    if not db.table_exists("nhs_rtt_monthly"):
+        return {"available": False}
+
+    national = db.read_sql(
+        """
+        SELECT period,
+               SUM(total_waiting)          AS total_waiting,
+               SUM(waiting_over_18_weeks)  AS over_18_weeks,
+               SUM(waiting_over_52_weeks)  AS over_52_weeks,
+               ROUND((1 - SUM(waiting_over_18_weeks)::numeric
+                        / NULLIF(SUM(total_waiting), 0)) * 100, 1) AS within_18_weeks_pct
+        FROM nhs_rtt_monthly GROUP BY period ORDER BY period DESC
+        """
+    )
+    by_specialty = db.read_sql(
+        """
+        SELECT specialty_name,
+               SUM(total_waiting)         AS total_waiting,
+               SUM(waiting_over_52_weeks) AS over_52_weeks,
+               ROUND(AVG(median_wait_weeks)::numeric, 1) AS median_wait_weeks
+        FROM nhs_rtt_monthly
+        WHERE period = (SELECT MAX(period) FROM nhs_rtt_monthly)
+        GROUP BY specialty_name ORDER BY total_waiting DESC LIMIT :limit
+        """,
+        {"limit": limit},
+    )
+    return {
+        "available": True,
+        "national": _records(national),
+        "by_specialty": _records(by_specialty),
+    }
+
+
+@app.get("/api/nhs/ae", tags=["real-data"])
+def nhs_ae(limit: int = Query(20, ge=1, le=100)) -> dict:
+    """Published A&E activity, nationally and by region."""
+    if not db.table_exists("nhs_ae_monthly"):
+        return {"available": False}
+
+    national = db.read_sql(
+        """
+        SELECT period,
+               SUM(attendances)          AS attendances,
+               SUM(emergency_admissions) AS emergency_admissions,
+               SUM(twelve_hour_waits)    AS twelve_hour_waits,
+               ROUND((1 - SUM(breaches_4hr)::numeric
+                        / NULLIF(SUM(attendances), 0)) * 100, 1) AS four_hour_performance_pct
+        FROM nhs_ae_monthly GROUP BY period ORDER BY period DESC
+        """
+    )
+    by_region = db.read_sql(
+        """
+        SELECT region_name,
+               SUM(attendances) AS attendances,
+               ROUND((1 - SUM(breaches_4hr)::numeric
+                        / NULLIF(SUM(attendances), 0)) * 100, 1) AS four_hour_performance_pct
+        FROM nhs_ae_monthly
+        WHERE period = (SELECT MAX(period) FROM nhs_ae_monthly)
+        GROUP BY region_name ORDER BY attendances DESC LIMIT :limit
+        """,
+        {"limit": limit},
+    )
+    return {
+        "available": True,
+        "national": _records(national),
+        "by_region": _records(by_region),
+    }
 
 
 @app.get("/api/validation/metrics", tags=["validation"])

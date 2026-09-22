@@ -194,6 +194,22 @@ python scripts/run_stream_sim.py --events 3000 --rate 1500
 
 Open <http://localhost:8501>.
 
+### Real vs modelled data
+
+Real, ingested from published sources — no credentials required:
+
+| Source | What it gives |
+|---|---|
+| **NHS England RTT** | Monthly incomplete-pathway waiting list by provider and treatment function (~7.2M pathways, 533 providers, 23 specialties) |
+| **NHS England A&E** | Monthly attendances, four-hour breaches, 12-hour DTA waits and emergency admissions by provider (~2.3M attendances, 182 providers) |
+| **NHS ODS** | Live register of active NHS trusts |
+| **Open-Meteo** | Daily mean temperature per NHS region |
+
+Modelled: the daily activity fact table, the A&E digital twin, workforce and
+demographics. NHS England publishes monthly, so anything at daily or minute
+grain is necessarily modelled — the Evidence & Validation page states which is
+which, per source, rather than blurring the line.
+
 > **Note:** Every external source has a synthetic fallback, so the full pipeline runs offline with no
 > NHS/ONS/Met Office credentials. The LLM layer defaults to **Claude** (`LLM_PROVIDER=anthropic`); with no
 > API key it falls back to a local echo model so the web app and RAG chat still function. Set
