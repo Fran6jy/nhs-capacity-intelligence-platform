@@ -1,9 +1,13 @@
 name: Deploy
 
 # Runs after the CI workflow succeeds on main (or on manual dispatch), and
-# deploys the API to Render and the frontend to Vercel. Each step is guarded by
-# the presence of its secret, so the workflow never fails for secrets you
-# haven't configured yet.
+# deploys the API to Render and the frontend to Vercel.
+#
+# Each step is guarded by the presence of its secret, so the workflow never
+# fails for secrets you haven't configured. That is convenient and dangerous in
+# equal measure: an unconfigured deploy is indistinguishable from a successful
+# one at a glance. Every skip therefore raises a ::warning:: annotation and a
+# step-summary line, so a green tick never silently means "deployed nothing".
 #
 # Repository secrets (Settings → Secrets and variables → Actions):
 #   RENDER_DEPLOY_HOOK   Render → service → Settings → Deploy Hook (a URL)
@@ -33,7 +37,8 @@ jobs:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "RENDER_DEPLOY_HOOK not set — skipping API deploy."
+            echo "::warning title=API not deployed::RENDER_DEPLOY_HOOK is not set, so this job deployed nothing. Harmless only if Render's own git integration (autoDeploy) is on."
+            echo "- ⏭️ **API not deployed** — \`RENDER_DEPLOY_HOOK\` unset" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           curl -fsS -X POST "$HOOK" && echo "✅ Render deploy triggered."
@@ -65,5 +70,6 @@ jobs:
           elif [ -n "$HOOK" ]; then
             curl -fsS -X POST "$HOOK" && echo "✅ Vercel deploy hook triggered."
           else
-            echo "No Vercel secrets set (VERCEL_TOKEN+IDs or VERCEL_DEPLOY_HOOK) — skipping frontend deploy."
+            echo "::warning title=Frontend not deployed::No Vercel secrets set, so this job deployed nothing and the live frontend is now behind main. Set VERCEL_DEPLOY_HOOK, or VERCEL_TOKEN + VERCEL_ORG_ID + VERCEL_PROJECT_ID."
+            echo "- ⏭️ **Frontend NOT deployed** — no Vercel secrets; the live site is behind \`main\`" >> "$GITHUB_STEP_SUMMARY"
           fi
