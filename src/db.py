@@ -34,7 +34,7 @@ def get_engine() -> Engine:
             "DATABASE_URL is not set. Point it at your PostgreSQL instance, e.g. "
             "postgresql+psycopg2://nhs@localhost:5432/nhs_warehouse"
         )
-    log.info("db.engine_init", url=url.rsplit("@", 1)[-1])  # log host only, never creds
+    log.info("db.engine_init")  # Never log any part of a credential-bearing URL.
     return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10)
 
 

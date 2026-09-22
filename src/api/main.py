@@ -66,6 +66,34 @@ def _records(df) -> list[dict[str, Any]]:
     return out
 
 
+def _database_failure_category(exc: Exception) -> str:
+    """Classify a DB failure without exposing its potentially sensitive message."""
+    if not settings.database_url:
+        return "missing_database_url"
+
+    original = getattr(exc, "orig", exc)
+    sqlstate = getattr(original, "pgcode", None) or getattr(original, "sqlstate", None)
+    if sqlstate in {"28P01", "28000"}:
+        return "authentication_failed"
+
+    message = str(exc).lower()  # Inspect only; never log or return this text.
+    if "password authentication failed" in message or "authentication failed" in message:
+        return "authentication_failed"
+    if "could not translate host name" in message or "name or service not known" in message:
+        return "dns_failed"
+    if "connection refused" in message:
+        return "connection_refused"
+    if "timeout" in message or "timed out" in message:
+        return "connection_timeout"
+    if "network is unreachable" in message or "no route to host" in message:
+        return "network_unreachable"
+    if "ssl" in message or "certificate" in message:
+        return "tls_error"
+    if "invalid port" in message or "could not parse" in message:
+        return "invalid_database_url"
+    return "other_database_error"
+
+
 # --------------------------------------------------------------------------- #
 # Health
 # --------------------------------------------------------------------------- #
@@ -77,7 +105,15 @@ def health() -> HealthResponse:
         ).iloc[0]["n"]
         return HealthResponse(status="ok", database="postgresql", tables=int(n))
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=f"database unavailable: {exc}") from exc
+        original = getattr(exc, "orig", exc)
+        sqlstate = getattr(original, "pgcode", None) or getattr(original, "sqlstate", None)
+        log.warning(
+            "api.health_database_unavailable",
+            category=_database_failure_category(exc),
+            error_type=type(exc).__name__,
+            sqlstate=sqlstate if isinstance(sqlstate, str) and len(sqlstate) == 5 and sqlstate.isalnum() else None,
+        )
+        raise HTTPException(status_code=503, detail="database unavailable") from None
 
 
 # --------------------------------------------------------------------------- #
