@@ -51,6 +51,11 @@ export default function Overview() {
   const pressure = usePressure(90);
   const dist = useRiskDistribution();
   const top = useRiskTop();
+  const hasError = kpis.isError || pressure.isError || dist.isError || top.isError;
+
+  const retry = () => {
+    void Promise.all([kpis.refetch(), pressure.refetch(), dist.refetch(), top.refetch()]);
+  };
 
   const distMap = Object.fromEntries((dist.data ?? []).map((d) => [d.classification, d.n]));
 
@@ -61,11 +66,20 @@ export default function Overview() {
         subtitle={`National operational pressure${kpis.data?.latest_date ? ` · latest ${kpis.data.latest_date}` : ""}`}
       />
 
+      {hasError && (
+        <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-risk-red/30 bg-risk-red/10 p-4 text-sm text-white">
+          <span>Live data is unavailable. The API or database may be down.</span>
+          <button type="button" onClick={retry} className="rounded-lg border border-white/20 px-3 py-1.5 font-medium hover:bg-white/10">
+            Try again
+          </button>
+        </div>
+      )}
+
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {kpis.isLoading || !kpis.data ? (
+        {kpis.isLoading ? (
           Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28" />)
-        ) : (
+        ) : kpis.data ? (
           <>
             <Kpi icon={Stethoscope} label="A&E attendances" value={kpis.data.ae_attendances} delay={0.02} />
             <Kpi icon={BedDouble} label="Capacity pressure" value={kpis.data.avg_bed_occupancy_pct} decimals={1} suffix="%" delay={0.06} />
@@ -73,6 +87,8 @@ export default function Overview() {
             <Kpi icon={Users2} label="Vacancy rate" value={kpis.data.avg_vacancy_rate} decimals={1} suffix="%" delay={0.14} />
             <Kpi icon={TriangleAlert} label="Trusts in red" value={kpis.data.trusts_red} delay={0.18} />
           </>
+        ) : (
+          <p className="col-span-full rounded-xl border border-white/10 p-4 text-sm text-slate-300">KPI data is unavailable.</p>
         )}
       </div>
 
@@ -82,9 +98,9 @@ export default function Overview() {
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-semibold text-white">Capacity pressure & A&E demand — 90 days</h3>
           </div>
-          {pressure.isLoading || !pressure.data ? (
+          {pressure.isLoading ? (
             <Skeleton className="h-72" />
-          ) : (
+          ) : pressure.data ? (
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={pressure.data} margin={{ left: -16, right: 8, top: 8 }}>
                 <defs>
@@ -106,6 +122,8 @@ export default function Overview() {
                 <Area yAxisId="r" type="monotone" dataKey="ae_attendances" name="A&E attendances" stroke="#0072CE" fill="url(#ae)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
+          ) : (
+            <p className="grid h-72 place-items-center text-sm text-slate-300">Trend data is unavailable.</p>
           )}
         </GlassCard>
 
