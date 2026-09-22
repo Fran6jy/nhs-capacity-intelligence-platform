@@ -20,9 +20,9 @@ jobs:
       - name: Lint
         run: ruff check src/ tests/
       - name: Type-check
-        run: mypy src/ || true
+        run: mypy src/          # enforced; see the ratchet in pyproject.toml
       - name: Test
-        run: pytest tests/ --cov=src
+        run: pytest tests/      # coverage floor is set in pyproject.toml
       - name: Build Docker image
         run: docker build -f docker/Dockerfile.api -t nhs-capacity-api:ci .
 

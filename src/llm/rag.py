@@ -138,3 +138,14 @@ def get_llm():
 
     log.warning("llm.fallback_echo")
     return _EchoLLM()
+
+
+def has_real_llm() -> bool:
+    """True when a provider-backed model is configured, not the echo fallback.
+
+    Callers that need genuine reasoning — notably SQL generation — must check
+    this. `get_llm()` always returns *something* so the app stays usable
+    without an API key, but asking `_EchoLLM` to author SQL would produce
+    confident nonsense.
+    """
+    return not isinstance(get_llm(), _EchoLLM)

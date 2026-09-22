@@ -19,8 +19,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent  # src/config.py -> projec
 
 
 def _env(key: str, default: str | None = None) -> str | None:
+    """Read an env var, treating empty strings as unset."""
     val = os.getenv(key, default)
     return val if val not in (None, "") else default
+
+
+def _env_str(key: str, default: str) -> str:
+    """Same, for settings that always have a value — keeps the field type `str`."""
+    val = _env(key, default)
+    return val if val is not None else default
 
 
 # Not frozen: the warehouse/data paths are overridable at runtime (e.g. tests
@@ -29,11 +36,11 @@ def _env(key: str, default: str | None = None) -> str | None:
 class Settings:
     # ---- paths ----
     project_root: Path = PROJECT_ROOT
-    bronze_path: Path = Path(_env("BRONZE_PATH", str(PROJECT_ROOT / "data" / "raw")))
-    silver_path: Path = Path(_env("SILVER_PATH", str(PROJECT_ROOT / "data" / "processed")))
-    gold_path: Path = Path(_env("GOLD_PATH", str(PROJECT_ROOT / "data" / "gold")))
+    bronze_path: Path = Path(_env_str("BRONZE_PATH", str(PROJECT_ROOT / "data" / "raw")))
+    silver_path: Path = Path(_env_str("SILVER_PATH", str(PROJECT_ROOT / "data" / "processed")))
+    gold_path: Path = Path(_env_str("GOLD_PATH", str(PROJECT_ROOT / "data" / "gold")))
     warehouse_path: Path = Path(
-        _env("WAREHOUSE_PATH", str(PROJECT_ROOT / "data" / "gold" / "warehouse.duckdb"))
+        _env_str("WAREHOUSE_PATH", str(PROJECT_ROOT / "data" / "gold" / "warehouse.duckdb"))
     )
     # PostgreSQL system-of-record (managed cloud or local). When set, the API
     # and publisher use it; the offline batch pipeline still builds the gold
@@ -42,25 +49,25 @@ class Settings:
 
     # ---- LLM ----
     # Default provider is Anthropic (Claude). Set LLM_PROVIDER=openrouter|openai|azure|ollama to switch.
-    llm_provider: str = _env("LLM_PROVIDER", "anthropic")
+    llm_provider: str = _env_str("LLM_PROVIDER", "anthropic")
     anthropic_api_key: str | None = _env("ANTHROPIC_API_KEY")
-    anthropic_model: str = _env("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+    anthropic_model: str = _env_str("ANTHROPIC_MODEL", "claude-sonnet-4-6")
     openai_api_key: str | None = _env("OPENAI_API_KEY")
-    openai_model: str = _env("OPENAI_MODEL", "gpt-4o-mini")
+    openai_model: str = _env_str("OPENAI_MODEL", "gpt-4o-mini")
     # OpenRouter (OpenAI-compatible gateway to many models)
     openrouter_api_key: str | None = _env("OPENROUTER_API_KEY")
-    openrouter_model: str = _env("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6")
-    openrouter_base_url: str = _env("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    openrouter_model: str = _env_str("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6")
+    openrouter_base_url: str = _env_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     # Let the (slow, optional) LLM rewrite rule-based recommendations. Off by
     # default so the batch pipeline stays fast and deterministic.
-    recommender_use_llm: bool = _env("RECOMMENDER_USE_LLM", "false").lower() in ("1", "true", "yes")
+    recommender_use_llm: bool = _env_str("RECOMMENDER_USE_LLM", "false").lower() in ("1", "true", "yes")
     azure_openai_endpoint: str | None = _env("AZURE_OPENAI_ENDPOINT")
     azure_openai_deployment: str | None = _env("AZURE_OPENAI_DEPLOYMENT")
     azure_openai_api_key: str | None = _env("AZURE_OPENAI_API_KEY")
 
     # ---- runtime ----
-    log_level: str = _env("LOG_LEVEL", "INFO")
-    app_env: str = _env("APP_ENV", "local")
+    log_level: str = _env_str("LOG_LEVEL", "INFO")
+    app_env: str = _env_str("APP_ENV", "local")
 
     # ---- API ----
     # Optional API-key auth. When set, every /api/* route (except health) requires
@@ -68,7 +75,7 @@ class Settings:
     api_key: str | None = _env("API_KEY")
     # Comma-separated allowed CORS origins for the React frontend.
     cors_origins: tuple[str, ...] = tuple(
-        o.strip() for o in _env(
+        o.strip() for o in _env_str(
             "CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"
         ).split(",") if o.strip()
     )

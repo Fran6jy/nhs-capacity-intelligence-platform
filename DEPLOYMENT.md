@@ -33,6 +33,25 @@ python scripts/run_pipeline.py        # rebuild the gold warehouse (DuckDB)
 python scripts/publish_to_postgres.py # load it into Supabase
 ```
 
+### Least-privilege role for the AI query path (recommended)
+
+`/api/ask` can execute model-generated SQL. Three layers guard it: the validator in
+`src/llm/nl2sql.py`, a `READ ONLY` transaction with a `statement_timeout`
+(`src/db.py:read_sql_readonly`), and — the only one that does not depend on this
+codebase being correct — a database role that simply cannot write.
+
+Run once in the Supabase SQL editor, then point `DATABASE_URL` at `nhs_reader`
+for the API. The publisher keeps using the owner role:
+
+```sql
+CREATE ROLE nhs_reader LOGIN PASSWORD '<strong-password>';
+GRANT CONNECT ON DATABASE postgres TO nhs_reader;
+GRANT USAGE ON SCHEMA public TO nhs_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO nhs_reader;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO nhs_reader;
+REVOKE CREATE ON SCHEMA public FROM nhs_reader;
+```
+
 ---
 
 ## 1. API → Render (Docker)

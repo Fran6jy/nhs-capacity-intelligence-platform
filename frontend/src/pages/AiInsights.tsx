@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Database, Send, Sparkles } from "lucide-react";
+import { Database, FlaskConical, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { useAsk, type AskResponse } from "../lib/api";
 import { GlassCard, SectionTitle, Spinner } from "../components/ui";
 
@@ -12,6 +12,40 @@ const SUGGESTIONS = [
 ];
 
 type Msg = { role: "user" | "assistant"; text: string; meta?: AskResponse };
+
+/**
+ * Says how the number in front of you was produced.
+ *
+ * A curated answer ran a reviewed query and can be trusted as-is. A generated
+ * one was authored by the model for this question — plausible, but worth
+ * reading the SQL before quoting it in a board paper.
+ */
+function ProvenanceBadge({ meta }: { meta: AskResponse }) {
+  const curated = meta.source === "curated";
+  return (
+    <div
+      className={
+        "mt-2.5 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] leading-snug ring-1 " +
+        (curated
+          ? "bg-emerald-400/[0.07] text-emerald-200/90 ring-emerald-400/20"
+          : "bg-amber-400/[0.07] text-amber-200/90 ring-amber-400/20")
+      }
+    >
+      {curated ? (
+        <ShieldCheck className="mt-px h-3.5 w-3.5 shrink-0" />
+      ) : (
+        <FlaskConical className="mt-px h-3.5 w-3.5 shrink-0" />
+      )}
+      <span>
+        <strong className="font-semibold">
+          {curated ? "Verified query" : "AI-generated SQL"}
+        </strong>{" "}
+        · {meta.explanation}
+        {!curated && " — check the SQL before relying on this figure."}
+      </span>
+    </div>
+  );
+}
 
 export default function AiInsights() {
   const [input, setInput] = useState("");
@@ -61,13 +95,16 @@ export default function AiInsights() {
             <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
               <div className={m.role === "user" ? "max-w-[80%] rounded-2xl rounded-br-sm bg-nhs-blue/20 px-4 py-2.5 text-slate-100 ring-1 ring-nhs-blue/30" : "max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] px-4 py-3 ring-1 ring-white/10"}>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
-                {m.meta && (
-                  <details className="mt-2 text-xs text-slate-400">
-                    <summary className="flex cursor-pointer items-center gap-1.5 text-nhs-cyan/80">
-                      <Database className="h-3.5 w-3.5" /> {m.meta.rows.length} rows · {m.meta.provider} · view SQL
-                    </summary>
-                    <pre className="mt-2 overflow-x-auto rounded-lg bg-black/30 p-2 text-[11px] text-slate-300">{m.meta.sql.trim()}</pre>
-                  </details>
+                {m.meta && m.meta.source !== "unanswerable" && (
+                  <>
+                    <ProvenanceBadge meta={m.meta} />
+                    <details className="mt-2 text-xs text-slate-400">
+                      <summary className="flex cursor-pointer items-center gap-1.5 text-nhs-cyan/80">
+                        <Database className="h-3.5 w-3.5" /> {m.meta.rows.length} rows · {m.meta.provider} · view SQL
+                      </summary>
+                      <pre className="mt-2 overflow-x-auto rounded-lg bg-black/30 p-2 text-[11px] text-slate-300">{m.meta.sql.trim()}</pre>
+                    </details>
+                  </>
                 )}
               </div>
             </motion.div>

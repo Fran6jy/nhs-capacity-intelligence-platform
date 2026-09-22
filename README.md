@@ -12,7 +12,7 @@ A production-grade analytics + AI platform that shifts NHS operations from **rea
 |---|---|
 | **Predictive forecasting** | 30/60/90-day bed occupancy, waiting time, A&E demand, workforce shortage forecasts (Prophet + XGBoost + LightGBM) |
 | **Composite Risk Score** | Operational pressure classified Green / Amber / Red from a peer-relative composite (waiting list growth, bed occupancy %, vacancy rate, A&E surge), plus an absolute safety overlay so system-wide surges still escalate — final verdict is the worse of the two |
-| **LLM Insight Layer** | Natural-language → SQL → context → LLM explanation (RAG). Multi-agent system with Forecasting, Workforce, Risk, and Executive agents |
+| **LLM Insight Layer** | Natural-language → SQL → context → LLM explanation (RAG), routed through three trust tiers: a reviewed query when one covers the question, model-generated SQL against the live schema for the long tail, and an explicit refusal rather than a guess. Every answer returns the SQL that produced it. Multi-agent system with Forecasting, Workforce, Risk, and Executive agents |
 | **Recommendation Engine** | Prescriptive actions: surge capacity, staffing redistribution, workload balancing |
 | **Streaming-Ready** | Medallion (Bronze/Silver/Gold) architecture on DuckDB / Postgres / Synapse, pluggable Kafka ingestion |
 

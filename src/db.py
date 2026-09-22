@@ -25,6 +25,9 @@ log = get_logger("db")
 WRITE_CHUNK_SIZE = 200
 WRITE_MAX_ATTEMPTS = 4
 
+# Untrusted (natural-language derived) queries run under these caps.
+READONLY_TIMEOUT_MS = 8_000
+
 
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
@@ -41,6 +44,30 @@ def get_engine() -> Engine:
 def read_sql(query: str, params: dict | None = None) -> pd.DataFrame:
     """Run a SELECT and return a DataFrame."""
     with get_engine().connect() as conn:
+        return pd.read_sql(text(query), conn, params=params or {})
+
+
+def read_sql_readonly(
+    query: str,
+    params: dict | None = None,
+    timeout_ms: int = READONLY_TIMEOUT_MS,
+) -> pd.DataFrame:
+    """Run an *untrusted* SELECT under database-enforced restrictions.
+
+    Defence in depth for the natural-language query path. The SQL validator in
+    `src.llm.nl2sql` is the first layer; this is the second, and it does not
+    depend on getting the parsing right:
+
+    * ``SET TRANSACTION READ ONLY`` — PostgreSQL itself rejects any write,
+      so a validator bypass still cannot mutate the warehouse.
+    * ``statement_timeout`` — caps runaway scans and cartesian joins.
+
+    The outermost layer is a least-privilege role: point ``DATABASE_URL`` at a
+    ``GRANT SELECT``-only user in production (see DEPLOYMENT.md).
+    """
+    with get_engine().begin() as conn:
+        conn.execute(text("SET TRANSACTION READ ONLY"))
+        conn.execute(text(f"SET LOCAL statement_timeout = {int(timeout_ms)}"))
         return pd.read_sql(text(query), conn, params=params or {})
 
 

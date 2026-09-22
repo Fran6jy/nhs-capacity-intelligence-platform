@@ -84,12 +84,18 @@ export interface StreamAe {
   minutes: StreamMinute[];
   totals: { attendances: number; ambulance: number; breach_risk: number };
 }
+/** Which trust tier answered — see src/llm/nl2sql.py. */
+export type AskSource = "curated" | "generated" | "unanswerable";
+
 export interface AskResponse {
   question: string;
   answer: string;
   sql: string;
   rows: Record<string, unknown>[];
   provider: string;
+  source: AskSource;
+  intent: string | null;
+  explanation: string;
 }
 
 // ---- hooks ----

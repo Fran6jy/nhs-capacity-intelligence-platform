@@ -385,23 +385,37 @@ def validation_forecast_actual() -> dict:
 # --------------------------------------------------------------------------- #
 @app.post("/api/ask", response_model=AskResponse, tags=["ai"])
 def ask(req: AskRequest) -> AskResponse:
-    from src.llm.nl2sql import _heuristic_sql, _validate
+    """Answer a natural-language question about the warehouse.
+
+    Routing is tiered (see `src.llm.nl2sql`): a reviewed query when one covers
+    the question, model-generated SQL for the long tail, and an explicit
+    refusal when neither applies. The executed SQL is always returned so the
+    caller can audit how the number was produced.
+    """
+    from src.llm.nl2sql import UnanswerableQuestion, answer_question
     from src.llm.prompts import SYSTEM_INSIGHT
     from src.llm.rag import get_llm
 
-    sql = _heuristic_sql(req.question)
     try:
-        _validate(sql)
+        result = answer_question(req.question)
+    except UnanswerableQuestion as exc:
+        return AskResponse(
+            question=req.question, answer=str(exc), sql="", rows=[],
+            provider=settings.llm_provider, source="unanswerable",
+            intent=None, explanation="No curated query or model could answer this.",
+        )
     except ValueError as exc:
         raise HTTPException(400, f"unsafe query: {exc}") from exc
 
-    df = db.read_sql(sql)
-    rows = _records(df)
-
-    llm = get_llm()
-    context = f"Question: {req.question}\n\nData (from PostgreSQL):\n{df.head(40).to_string(index=False)}"
+    rows = _records(result.df)
+    preview = result.df.head(40).to_string(index=False)
+    context = (
+        f"Question: {req.question}\n\n"
+        f"SQL executed ({result.source}):\n{result.sql}\n\n"
+        f"Data (from PostgreSQL):\n{preview}"
+    )
     try:
-        answer = llm.invoke(
+        answer = get_llm().invoke(
             [{"role": "system", "content": SYSTEM_INSIGHT},
              {"role": "user", "content": context}]
         ).content
@@ -410,6 +424,7 @@ def ask(req: AskRequest) -> AskResponse:
         answer = "LLM unavailable; returning retrieved data only."
 
     return AskResponse(
-        question=req.question, answer=answer, sql=sql, rows=rows,
-        provider=settings.llm_provider,
+        question=req.question, answer=answer, sql=result.sql, rows=rows,
+        provider=settings.llm_provider, source=result.source,
+        intent=result.intent, explanation=result.explanation,
     )
