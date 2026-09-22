@@ -12,6 +12,7 @@ from the same SQL the DuckDB build uses (the DDL is Postgres-compatible).
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -37,6 +38,81 @@ OPTIONAL_TABLES = [
 ]
 
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
+
+#: Read-only role the API may connect as. Created out-of-band (it needs a
+#: password); the grants and policies below are re-applied here so they survive
+#: a reload. Absent in local/dev databases, which is fine — it is skipped.
+READER_ROLE = "nhs_reader"
+
+_IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
+def harden() -> None:
+    """Re-apply row-level security and grants after a load.
+
+    Publishing drops and recreates the optional tables, and a dropped table
+    takes its RLS setting and every policy with it. Left to a one-off manual
+    script, the database therefore drifts back towards being readable through
+    the anon key a little more with each refresh — silently, because nothing
+    fails.
+
+    So the posture is declared here and re-asserted on every publish:
+
+    * the PostgREST roles (`anon`, `authenticated`) hold no grants — nothing in
+      this project uses the Supabase client libraries;
+    * RLS is on everywhere, so a future grant cannot quietly open a table;
+    * `nhs_reader`, if it exists, keeps a SELECT grant and a read policy. It is
+      not the table owner, so without a policy it would read zero rows.
+
+    Idempotent, and safe on a database where the reader role was never created.
+    """
+    from sqlalchemy import text
+
+    with db.get_engine().begin() as conn:
+        conn.execute(text("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated"))
+        conn.execute(
+            text(
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+                "REVOKE ALL ON TABLES FROM anon, authenticated"
+            )
+        )
+
+        has_reader = conn.execute(
+            text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": READER_ROLE}
+        ).first()
+
+        tables = [
+            row[0]
+            for row in conn.execute(
+                text(
+                    "SELECT tablename FROM pg_tables "
+                    "WHERE schemaname = 'public' ORDER BY tablename"
+                )
+            )
+        ]
+
+        for table in tables:
+            if not _IDENT.match(table):  # defensive: identifiers are interpolated below
+                log.warning("publish.skip_odd_identifier", table=table)
+                continue
+
+            conn.execute(text(f"ALTER TABLE public.{table} ENABLE ROW LEVEL SECURITY"))
+            if has_reader:
+                conn.execute(text(f"GRANT SELECT ON public.{table} TO {READER_ROLE}"))
+                conn.execute(
+                    text(f"DROP POLICY IF EXISTS {READER_ROLE}_read ON public.{table}")
+                )
+                conn.execute(
+                    text(
+                        f"CREATE POLICY {READER_ROLE}_read ON public.{table} "
+                        f"FOR SELECT TO {READER_ROLE} USING (true)"
+                    )
+                )
+
+        if has_reader:
+            conn.execute(text(f"GRANT USAGE ON SCHEMA public TO {READER_ROLE}"))
+
+    log.info("publish.hardened", tables=len(tables), reader_role=bool(has_reader))
 
 
 def _duck() -> duckdb.DuckDBPyConnection:
@@ -88,6 +164,10 @@ def main() -> int:
 
     # 4) analytics views (depend on the now-populated tables)
     db.execute_script((SQL_DIR / "02_analytics_views.sql").read_text(encoding="utf-8"))
+
+    # 5) re-apply the security posture, which the load above partly destroys
+    harden()
+
     log.info("publish.complete")
     return 0
 
