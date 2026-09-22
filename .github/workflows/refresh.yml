@@ -5,7 +5,9 @@ name: Refresh data
 # Supabase live, so no redeploy is needed; the data simply stays current.
 #
 # Required repository secret:
-#   DATABASE_URL  — Supabase IPv4 session-pooler URI (URL-encode the password)
+#   DATABASE_URL  — Supabase IPv4 session-pooler URI (URL-encode the password), OR
+#   DB_PASSWORD   — the raw password, with DB_HOST/DB_USER below; the code
+#                   percent-encodes it, so awkward characters cannot break the URI.
 
 on:
   schedule:
@@ -35,10 +37,13 @@ jobs:
       - name: Refresh warehouse → stream → Supabase
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           RECOMMENDER_USE_LLM: "false"   # keep the batch deterministic + fast (no LLM calls)
         run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "::error::DATABASE_URL secret not set — add it in Settings → Secrets and variables → Actions."
+          if [ -z "$DATABASE_URL" ] && [ -z "$DB_PASSWORD" ]; then
+            echo "::error::No database configured — set the DATABASE_URL secret, or DB_PASSWORD plus the DB_HOST/DB_USER variables, in Settings → Secrets and variables → Actions."
             exit 1
           fi
           python scripts/check_database_url.py

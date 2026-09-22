@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 
@@ -30,6 +31,36 @@ def _env_str(key: str, default: str) -> str:
     return val if val is not None else default
 
 
+def resolve_database_url() -> str | None:
+    """Return the Postgres URI, assembling it from parts when asked to.
+
+    A URI embeds the password in a field with its own escaping rules, so a
+    password containing ``/``, ``@``, ``:`` or ``%`` must be percent-encoded by
+    hand. Getting that wrong produces *"password authentication failed"* — a
+    message that sends you off rotating a password that was never wrong. That
+    exact mistake left this warehouse unrefreshed for 72 days.
+
+    So: set ``DATABASE_URL`` directly if you like (unchanged behaviour), or set
+    ``DB_PASSWORD`` alongside ``DB_HOST``/``DB_USER`` and let ``quote()`` do the
+    encoding. The latter cannot be got wrong by hand.
+    """
+    explicit = _env("DATABASE_URL")
+    if explicit:
+        return explicit
+
+    host = _env("DB_HOST")
+    user = _env("DB_USER")
+    password = _env("DB_PASSWORD")
+    if not (host and user and password):
+        return None
+
+    return (
+        f"postgresql+psycopg2://{quote(user, safe='')}:{quote(password, safe='')}"
+        f"@{host}:{_env_str('DB_PORT', '5432')}/{_env_str('DB_NAME', 'postgres')}"
+        f"?sslmode={_env_str('DB_SSLMODE', 'require')}"
+    )
+
+
 # Not frozen: the warehouse/data paths are overridable at runtime (e.g. tests
 # point them at a tmp dir, deployments point them at Postgres/Synapse).
 @dataclass
@@ -45,7 +76,7 @@ class Settings:
     # PostgreSQL system-of-record (managed cloud or local). When set, the API
     # and publisher use it; the offline batch pipeline still builds the gold
     # tables in DuckDB and `publish_to_postgres` loads them here.
-    database_url: str | None = _env("DATABASE_URL")
+    database_url: str | None = field(default_factory=resolve_database_url)
 
     # ---- LLM ----
     # Default provider is Anthropic (Claude). Set LLM_PROVIDER=openrouter|openai|azure|ollama to switch.

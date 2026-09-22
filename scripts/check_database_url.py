@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-import os
+import sys
+from pathlib import Path
 from urllib.parse import urlparse
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.config import resolve_database_url
 
 
 def _safe_target(url: str) -> str:
@@ -47,9 +52,12 @@ def _check_pooler_username(username: str, hostname: str) -> str | None:
 
 
 def main() -> int:
-    database_url = os.getenv("DATABASE_URL", "").strip()
+    database_url = (resolve_database_url() or "").strip()
     if not database_url:
-        print("::error::DATABASE_URL secret is not set.")
+        print(
+            "::error::No database configured. Set the DATABASE_URL secret, or "
+            "set DB_HOST, DB_USER and DB_PASSWORD and let the code encode the URI."
+        )
         return 1
 
     parsed = urlparse(database_url)
