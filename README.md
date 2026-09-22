@@ -65,6 +65,7 @@ nhs-capacity-platform/
 ├── README.md                         # this file
 ├── ARCHITECTURE.md                   # detailed design + data flow
 ├── DEPLOYMENT.md                     # local + cloud deployment plan
+├── OPERATIONS.md                     # running it: routines, security, runbook
 ├── pyproject.toml                    # deps
 ├── requirements.txt
 ├── .env.example
@@ -79,6 +80,8 @@ nhs-capacity-platform/
 │   ├── __init__.py
 │   ├── config.py                     # settings
 │   ├── ingestion/                    # data acquisition
+│   │   ├── nhs_england.py            # REAL monthly RTT + A&E open data
+│   │   ├── ods.py                    # REAL live NHS trust roster
 │   │   ├── nhs_api.py
 │   │   ├── hes_client.py
 │   │   ├── workforce.py
@@ -89,6 +92,7 @@ nhs-capacity-platform/
 │   │   ├── bronze.py
 │   │   ├── silver.py
 │   │   ├── gold.py
+│   │   ├── nhs_real.py               # real NHS monthly tables (own grain)
 │   │   └── features.py
 │   ├── db.py                         # SQLAlchemy/PostgreSQL data layer
 │   ├── api/                          # FastAPI backend (serves from Postgres)
@@ -129,11 +133,17 @@ nhs-capacity-platform/
 ├── powerbi/
 │   └── README.md                     # PBIX connect instructions
 │
-├── tests/
+├── tests/                            # 58 tests, enforced in CI
 │   ├── test_pipeline.py
 │   ├── test_models.py
 │   ├── test_risk.py
-│   ├── test_rag.py
+│   ├── test_rag.py                   # NL→SQL tiers, validator, refusal
+│   ├── test_nhs_england.py           # real-data parsing traps
+│   ├── test_api_ask.py               # HTTP contract
+│   ├── test_config.py                # DB URL resolution
+│   ├── test_check_database_url.py
+│   ├── test_db.py
+│   ├── test_api_health.py
 │   └── test_streaming.py
 │
 ├── frontend/                         # React + TypeScript + Tailwind SPA
@@ -146,12 +156,16 @@ nhs-capacity-platform/
 │
 ├── scripts/
 │   ├── run_pipeline.py               # end-to-end pipeline runner
-│   ├── publish_to_postgres.py        # load gold → PostgreSQL
+│   ├── publish_to_postgres.py        # load gold → PostgreSQL + harden()
+│   ├── ingest_nhs_real.py            # MONTHLY: real NHS data (run locally)
+│   ├── check_database_url.py         # connection preflight
+│   ├── check_reader_role.py          # prove the read-only role works
 │   └── run_stream_sim.py             # streaming simulation
 │
 └── .github/
     └── workflows/
         ├── ci.yml
+        ├── refresh.yml               # 12-hourly data refresh
         └── deploy.yml
 ```
 
@@ -192,7 +206,7 @@ python scripts/run_stream_sim.py --events 3000 --rate 1500
 #   Set STREAM_BACKEND=kafka + KAFKA_BOOTSTRAP=host:9092 to run against a real broker.
 ```
 
-Open <http://localhost:8501>.
+Open <http://localhost:5173> (Vite dev server; the API runs on :8000).
 
 ### Real vs modelled data
 
@@ -217,11 +231,49 @@ which, per source, rather than blurring the line.
 
 ---
 
-## 🧠 Example LLM Insights
+## 🧠 Example LLM Insight
 
-**Q:** "Why are cardiology waiting times increasing?"
+Verbatim from the deployed `/api/ask`, not an illustration:
 
-**A:** "Cardiology waiting times are increasing due to an **18% rise in referrals** combined with a **7% reduction in consultant capacity**. If trends continue, waiting times will increase by **~12 days within 60 days**. Recommended actions: (1) open surge outpatient capacity, (2) redeploy 4 consultants from low-pressure trusts, (3) expand community diagnostic hubs."
+**Q:** "Why are waiting times rising?"
+
+> **Explanation**: Waiting times are not rising — they have fallen across all ten
+> specialties over the last 90 days, with median waits decreasing by 1.1–1.8 days.
+>
+> **Quantified insight**:
+> - Trauma & Orthopaedics and General Medicine saw the largest drops: median wait fell
+>   from 22.1 to 20.3 days and from 21.5 to 19.8 days respectively (−1.8 days each).
+> - The smallest improvement was in General Surgery, down from 17.4 to 16.3 days.
+
+The assistant **contradicts the question's premise** rather than explaining a trend
+that isn't happening. Three properties make that possible:
+
+1. **Tiered routing.** A reviewed query answers what it covers; model-generated SQL
+   handles the long tail; anything neither can answer is **refused**, not guessed.
+   Ask it the capital of France and it says what it can answer instead.
+2. **Trend data, not snapshots.** The waiting-times query returns now, 90 days ago,
+   and the change — so "why is X rising" is answerable, including with "it isn't".
+3. **Auditable provenance.** Every answer returns the SQL that produced it, badged
+   *Verified query* or *AI-generated SQL — check before relying on this figure*.
+
+---
+
+## 🔧 Running it in production
+
+Day-to-day operations, the security model and a failure runbook live in
+[`OPERATIONS.md`](OPERATIONS.md). The two things worth knowing up front:
+
+* **The warehouse refreshes itself** every 12 hours via GitHub Actions — models,
+  risk scores, digital twin and all — and re-applies the database security posture
+  on each run.
+* **The real NHS England data is refreshed by hand, monthly.** NHS England publish on
+  the **second Thursday**; their WAF blocks datacentre IPs, so CI cannot fetch it:
+
+  ```powershell
+  python scripts/ingest_nhs_real.py
+  ```
+
+  See [`OPERATIONS.md` §3](OPERATIONS.md) for the full routine and the verification step.
 
 ---
 
@@ -231,9 +283,16 @@ which, per source, rather than blurring the line.
 * **Medallion architecture** — bronze/silver/gold; reproducible transformations.
 * **Star schema warehouse** — analytics-optimized joins.
 * **Hybrid ML** — Prophet for univariate seasonality, XGBoost/LightGBM for multivariate + lags.
-* **Agentic LLM** — NL→SQL guard-railed by SQL validation; multi-agent orchestration.
+* **Agentic LLM** — NL→SQL behind three trust tiers; a refusal beats a plausible guess.
+* **Least privilege at runtime** — the API connects with a role that cannot write, so a
+  flaw in the query layer cannot mutate the warehouse.
+* **Security as code** — RLS and grants are re-applied by the publisher on every run,
+  because a posture set by hand erodes the moment a table is recreated.
+* **Honest provenance** — real and modelled sources are labelled per source, in the UI,
+  rather than blurred together.
 * **Local-first** — runs entirely on DuckDB for an MVP, scales to Postgres/Synapse.
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`DEPLOYMENT.md`](DEPLOYMENT.md) for details.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for design, [`DEPLOYMENT.md`](DEPLOYMENT.md)
+for first-time setup, and [`OPERATIONS.md`](OPERATIONS.md) for running it.
 
 ---
