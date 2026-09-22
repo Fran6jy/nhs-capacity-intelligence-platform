@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import ReactMarkdown from "react-markdown";
 import { Database, FlaskConical, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { useAsk, type AskResponse } from "../lib/api";
 import { GlassCard, SectionTitle, Spinner } from "../components/ui";
@@ -12,6 +13,50 @@ const SUGGESTIONS = [
 ];
 
 type Msg = { role: "user" | "assistant"; text: string; meta?: AskResponse };
+
+/**
+ * Renders the assistant's markdown.
+ *
+ * The model is prompted to return a structured reply with bold section labels.
+ * Rendered as plain text those labels arrive as literal `**Explanation**`, so
+ * the reply has to go through a markdown renderer — styled here rather than via
+ * a typography plugin, to stay legible on the glass background.
+ */
+function Markdown({ children }: { children: string }) {
+  return (
+    <div className="text-sm leading-relaxed text-slate-200">
+      <ReactMarkdown
+        components={{
+          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+          strong: ({ children }) => (
+            <strong className="font-semibold text-white">{children}</strong>
+          ),
+          ul: ({ children }) => (
+            <ul className="mb-2 list-disc space-y-1 pl-4 last:mb-0 marker:text-nhs-cyan/60">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="mb-2 list-decimal space-y-1 pl-4 last:mb-0">{children}</ol>
+          ),
+          li: ({ children }) => <li className="pl-0.5">{children}</li>,
+          code: ({ children }) => (
+            <code className="rounded bg-black/30 px-1 py-0.5 text-[12px] text-nhs-cyan">
+              {children}
+            </code>
+          ),
+          a: ({ children, href }) => (
+            <a href={href} className="text-nhs-cyan underline underline-offset-2">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 /**
  * Says how the number in front of you was produced.
@@ -94,7 +139,11 @@ export default function AiInsights() {
           {msgs.map((m, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
               <div className={m.role === "user" ? "max-w-[80%] rounded-2xl rounded-br-sm bg-nhs-blue/20 px-4 py-2.5 text-slate-100 ring-1 ring-nhs-blue/30" : "max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] px-4 py-3 ring-1 ring-white/10"}>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
+                {m.role === "user" ? (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
+                ) : (
+                  <Markdown>{m.text}</Markdown>
+                )}
                 {m.meta && m.meta.source !== "unanswerable" && (
                   <>
                     <ProvenanceBadge meta={m.meta} />

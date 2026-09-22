@@ -20,6 +20,9 @@ Rules:
 - Be concise, professional, and operational.
 - Use British spelling (e.g. "hospitalised", "speciality").
 - If the data is insufficient, say so clearly.
+- If the data contradicts the question's premise, say so in the first line and
+  give the figures. A question asking why a metric is rising is not evidence
+  that it is rising; correcting that is more useful than explaining it away.
 """
 
 SYSTEM_RECOMMENDER = """You are an NHS operations advisor. Rephrase a rule-based

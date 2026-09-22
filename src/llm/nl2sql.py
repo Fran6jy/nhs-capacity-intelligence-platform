@@ -66,15 +66,33 @@ class Intent:
 INTENTS: tuple[Intent, ...] = (
     Intent(
         name="waiting_times",
-        description="Median waiting time by specialty, latest date",
+        description="Median wait by specialty now vs 90 days ago, with the change",
         patterns=(r"\bwait(ing|s|ed)?\b", r"\brtt\b", r"\bbacklog\b"),
+        # Returns a *comparison*, not a snapshot. People ask "why are waits
+        # rising", and a single-day figure cannot answer that — it leaves the
+        # model either refusing or inventing a trend. Handing it both endpoints
+        # lets it answer the question, and lets it say "they are not rising"
+        # when that is what the data shows.
         sql="""
-            SELECT s.specialty_name, AVG(f.median_wait_days) AS median_wait_days
+            WITH bounds AS (
+                SELECT MAX(date_key) AS latest,
+                       (MAX(date_key) - INTERVAL '90 days')::date AS prior
+                FROM hospital_activity_fact
+            )
+            SELECT s.specialty_name,
+                   ROUND(AVG(f.median_wait_days)
+                         FILTER (WHERE f.date_key = b.latest)::numeric, 1) AS wait_now_days,
+                   ROUND(AVG(f.median_wait_days)
+                         FILTER (WHERE f.date_key = b.prior)::numeric, 1) AS wait_90d_ago_days,
+                   ROUND((AVG(f.median_wait_days) FILTER (WHERE f.date_key = b.latest)
+                        - AVG(f.median_wait_days) FILTER (WHERE f.date_key = b.prior))::numeric, 1)
+                        AS change_days
             FROM hospital_activity_fact f
             JOIN dim_specialty s ON f.specialty_id = s.specialty_id
-            WHERE f.date_key = (SELECT MAX(date_key) FROM hospital_activity_fact)
+            CROSS JOIN bounds b
+            WHERE f.date_key IN (b.latest, b.prior)
             GROUP BY s.specialty_name
-            ORDER BY median_wait_days DESC
+            ORDER BY change_days DESC NULLS LAST
             LIMIT 10
         """,
     ),
