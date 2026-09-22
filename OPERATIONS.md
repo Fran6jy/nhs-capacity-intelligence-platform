@@ -11,7 +11,7 @@ in [DEPLOYMENT.md](DEPLOYMENT.md).
 | Component | Host | Connects as | Deploys when |
 |---|---|---|---|
 | **API** (FastAPI) | Render — `nhs-capacity-api.onrender.com` | `nhs_reader` (read-only) | push to `main` (`autoDeploy: true`) |
-| **Frontend** (React/Vite) | Vercel (`frontend/vercel.json`) | — calls the API | push to `main` |
+| **Frontend** (React/Vite) | Vercel (`frontend/vercel.json`) | — calls the API | only if Git-connected — **check**, see below |
 | **Database** | Supabase, project `dtxavwlqmefuhyphjikk`, eu-west-1 | — | — |
 | **Scheduled refresh** | GitHub Actions `refresh.yml` | `postgres` (owner) | every 12h, or manually |
 | **NHS real-data ingestion** | **your laptop** — see §3 | `postgres` (owner) | monthly, manually |
