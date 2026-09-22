@@ -109,7 +109,10 @@ def main() -> int:
                 print(f"  {table:.<34} {n:>9,}{flag}")
 
             print("\nChecking writes are refused:")
-            trans = conn.begin()
+            # No explicit begin(): the SELECTs above have already autobegun a
+            # transaction on this connection, and starting a second one raises
+            # rather than doing anything useful. Rolling back at the end undoes
+            # the INSERT in the case where it is wrongly permitted.
             try:
                 conn.execute(
                     text(f"INSERT INTO public.{PROBE_TABLE} (region_id, region_name, country) "
@@ -117,10 +120,10 @@ def main() -> int:
                 )
                 failures.append(f"write to {PROBE_TABLE} SUCCEEDED — the role is not read-only")
                 print(f"  INSERT into {PROBE_TABLE} ... ALLOWED  <- should have been refused")
-            except SQLAlchemyError:
-                print(f"  INSERT into {PROBE_TABLE} ... refused")
+            except SQLAlchemyError as exc:
+                print(f"  INSERT into {PROBE_TABLE} ... refused ({type(exc).__name__})")
             finally:
-                trans.rollback()
+                conn.rollback()
 
     except SQLAlchemyError as exc:
         print(f"::error::Could not connect as the reader role: {str(exc).splitlines()[0]}")
