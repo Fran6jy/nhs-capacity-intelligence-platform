@@ -35,18 +35,15 @@ REGION_CENTROIDS: dict[str, tuple[float, float]] = {
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8))
 def _archive(lat: float, lon: float, start: date, end: date) -> dict:
-    resp = requests.get(
-        ARCHIVE_URL,
-        params={
-            "latitude": lat,
-            "longitude": lon,
-            "start_date": start.isoformat(),
-            "end_date": end.isoformat(),
-            "daily": "temperature_2m_mean",
-            "timezone": "UTC",
-        },
-        timeout=30,
-    )
+    params: dict[str, str | float] = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "daily": "temperature_2m_mean",
+        "timezone": "UTC",
+    }
+    resp = requests.get(ARCHIVE_URL, params=params, timeout=30)
     resp.raise_for_status()
     return resp.json()
 

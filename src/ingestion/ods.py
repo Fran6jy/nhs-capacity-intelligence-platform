@@ -84,9 +84,14 @@ def fetch_trusts(limit: int = 40) -> list[tuple[str, str, str, str, int]]:
     Restricted to acute trusts (the platform models acute demand) and capped at
     ``limit`` for a manageable demo footprint.
     """
+    params: dict[str, str | int] = {
+        "PrimaryRoleId": "RO197",
+        "Status": "Active",
+        "Limit": 250,
+    }
     resp = requests.get(
         ODS_URL,
-        params={"PrimaryRoleId": "RO197", "Status": "Active", "Limit": 250},
+        params=params,
         headers={"User-Agent": "nhs-platform/1.0", "Accept": "application/json"},
         timeout=30,
     )
