@@ -18,8 +18,8 @@ import {
   useNhsAe,
   type MonthlyMetric,
 } from "../lib/api";
-import { GlassCard, SectionTitle, Skeleton } from "../components/ui";
-import { chartTooltip } from "../components/chart";
+import { GlassCard, ProvenanceTag, SectionTitle, Skeleton } from "../components/ui";
+import { ACTUAL, AXIS, ChartLegend, CROSSHAIR, GRID, SERIES, TICK, chartTooltip } from "../components/chart";
 import clsx from "clsx";
 
 const TARGETS = [
@@ -108,26 +108,31 @@ function RealForecastPanel() {
         ))}
         <div className="ml-auto"><SkillBadge m={metric} /></div>
       </div>
+      <ChartLegend className="mb-2" items={[
+        { name: "Published", color: ACTUAL },
+        { name: "Forecast", color: SERIES[0] },
+        { name: "80% conformal band", color: SERIES[0], kind: "band" },
+      ]} />
       <ResponsiveContainer width="100%" height={340}>
         <ComposedChart data={rows} margin={{ left: 4, right: 8, top: 8 }}>
           <defs>
             <linearGradient id="realband" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity={0.25} />
-              <stop offset="100%" stopColor="#22c55e" stopOpacity={0.03} />
+              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.04} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-          <XAxis dataKey="period" tick={{ fill: "#94a3b8", fontSize: 11 }} minTickGap={36} />
-          <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} domain={["auto", "auto"]} width={64}
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="period" tick={TICK} minTickGap={36} axisLine={{ stroke: AXIS }} tickLine={false} />
+          <YAxis tick={TICK} domain={["auto", "auto"]} width={64} axisLine={false} tickLine={false}
                  tickFormatter={(v) => fmt(Number(v), unit)} />
-          <Tooltip content={chartTooltip} />
+          <Tooltip content={chartTooltip} cursor={CROSSHAIR} />
           <Area type="monotone" dataKey="band" name="80% conformal band" stroke="none" fill="url(#realband)" connectNulls={false} />
-          <Line type="monotone" dataKey="actual" name="Published" stroke="#94a3b8" strokeWidth={2} dot={false} connectNulls={false} />
-          <Line type="monotone" dataKey="yhat" name="Forecast" stroke="#22c55e" strokeWidth={2.5} dot={false} connectNulls={false} />
+          <Line type="monotone" dataKey="actual" name="Published" stroke={ACTUAL} strokeWidth={2} dot={false} connectNulls={false} />
+          <Line type="monotone" dataKey="yhat" name="Forecast" stroke={SERIES[0]} strokeWidth={2} dot={false} connectNulls={false} />
         </ComposedChart>
       </ResponsiveContainer>
       <p className="mt-2 text-xs text-slate-500">
-        Grey is NHS England's published monthly figure; green is a 12-month forecast from whichever
+        Grey is NHS England's published monthly figure; teal is a 12-month forecast from whichever
         candidate model won the rolling-origin back-test for this series (named in the badge), with an
         80% band sized from that model's own held-out errors rather than a fixed multiplier. Skill is
         measured against "same month last year"; if nothing beats it, the naive is the forecast and
@@ -167,7 +172,7 @@ export default function Forecasting() {
       <GlassCard>
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <h3 className="font-semibold text-white">National outlook — published NHS England series</h3>
-          <span className="rounded-full bg-risk-green/15 px-2 py-0.5 text-[11px] font-semibold text-risk-green ring-1 ring-risk-green/40">Real</span>
+          <ProvenanceTag kind="real" />
         </div>
         <p className="mb-4 text-xs text-slate-400">
           Forecasts on the monthly RTT waiting list (published since 2007) and three years of
@@ -178,7 +183,7 @@ export default function Forecasting() {
 
       <div className="mb-3 mt-8 flex flex-wrap items-center gap-2">
         <h3 className="font-semibold text-white">Daily projections — modelled series</h3>
-        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-slate-300 ring-1 ring-white/15">Modelled</span>
+        <ProvenanceTag kind="modelled" />
       </div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-2">
@@ -222,22 +227,28 @@ export default function Forecasting() {
         ) : data.length === 0 ? (
           <div className="grid h-80 place-items-center text-slate-500">No forecast rows for this selection.</div>
         ) : (
+          <>
+          <ChartLegend className="mb-2" items={[
+            { name: "Forecast", color: SERIES[0] },
+            { name: "80% conformal band", color: SERIES[0], kind: "band" },
+          ]} />
           <ResponsiveContainer width="100%" height={360}>
             <ComposedChart data={data} margin={{ left: -12, right: 8, top: 8 }}>
               <defs>
                 <linearGradient id="bandgrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00C2D1" stopOpacity={0.22} />
-                  <stop offset="100%" stopColor="#00C2D1" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.22} />
+                  <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.04} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="date_key" tick={{ fill: "#94a3b8", fontSize: 11 }} minTickGap={40} />
-              <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <Tooltip content={chartTooltip} />
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis dataKey="date_key" tick={TICK} minTickGap={40} axisLine={{ stroke: AXIS }} tickLine={false} />
+              <YAxis tick={TICK} axisLine={false} tickLine={false} />
+              <Tooltip content={chartTooltip} cursor={CROSSHAIR} />
               <Area type="monotone" dataKey="band" name="80% conformal band" stroke="none" fill="url(#bandgrad)" />
-              <Line type="monotone" dataKey="yhat" name="Forecast" stroke="#00C2D1" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="yhat" name="Forecast" stroke={SERIES[0]} strokeWidth={2} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
+          </>
         )}
         <p className="mt-2 text-xs text-slate-500">
           The daily series is modelled: NHS England publishes monthly, so anything at daily

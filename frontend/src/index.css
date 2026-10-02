@@ -4,6 +4,19 @@
 
 :root {
   color-scheme: dark;
+
+  /* Chart chrome — recessive by design. The data is the only loud thing. */
+  --chart-surface: #0f1527;
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-axis: rgba(255, 255, 255, 0.16);
+  --chart-tick: #94a3b8;
+
+  /* Categorical series (validated; see tailwind.config.js). */
+  --series-1: #12a5b3;
+  --series-2: #d95926;
+  --series-3: #9085e9;
+  --series-4: #d55181;
+  --series-actual: #94a3b8; /* published / observed values: neutral ink, never a hue */
 }
 
 html,
@@ -20,6 +33,19 @@ body {
     radial-gradient(900px 500px at -10% 20%, rgba(0, 194, 209, 0.12), transparent 55%);
 }
 
+/* Keyboard users get the same affordance pointer users get from hover. */
+:focus-visible {
+  outline: 2px solid #00c2d1;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 194, 209, 0.25);
+}
+
 /* Glassmorphism surface */
 .glass {
   @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-card;
@@ -27,6 +53,11 @@ body {
 
 .glass-hover {
   @apply transition-all duration-300 hover:border-nhs-cyan/40 hover:bg-white/[0.06] hover:shadow-glow;
+}
+
+/* Small-caps eyebrow above a title or section. */
+.eyebrow {
+  @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400;
 }
 
 /* Thin scrollbars */
@@ -43,4 +74,30 @@ body {
 
 .text-gradient {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-nhs-cyan via-sky-300 to-nhs-blue;
+}
+
+/* Hold the previous render while data refetches: no skeleton flash, no jump. */
+.is-refetching {
+  opacity: 0.6;
+  transition: opacity 200ms ease;
+}
+
+/* Respect the OS motion preference: the aurora, floating icon, shimmer and
+   page transitions are decoration, and decoration must not move for people
+   who have asked it not to. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora,
+  .animate-aurora-slow,
+  .animate-float,
+  .animate-shimmer,
+  .animate-pulse,
+  .animate-ping {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

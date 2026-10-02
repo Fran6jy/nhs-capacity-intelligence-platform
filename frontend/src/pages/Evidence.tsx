@@ -19,8 +19,8 @@ import {
   useValidationMetrics,
   useValidationSources,
 } from "../lib/api";
-import { GlassCard, SectionTitle, Skeleton } from "../components/ui";
-import { chartTooltip } from "../components/chart";
+import { GlassCard, ProvenanceTag, SectionTitle, Skeleton } from "../components/ui";
+import { ACTUAL, AXIS, BAR_CURSOR, ChartLegend, CROSSHAIR, GRID, SERIES, TICK, chartTooltip } from "../components/chart";
 
 /**
  * Colour by skill over the trivial baseline, not by a raw accuracy grade.
@@ -53,7 +53,7 @@ function RealStat({
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 ring-1 ring-risk-green/20">
       <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={`mt-1.5 font-bold tabular-nums ${emphasis ? "text-3xl text-white" : "text-2xl text-slate-100"}`}>
+      <div className={`mt-1.5 font-bold ${emphasis ? "text-3xl text-white" : "text-2xl text-slate-100"}`}>
         {value}
         {unit && <span className="ml-1 text-base font-medium text-slate-400">{unit}</span>}
       </div>
@@ -90,9 +90,7 @@ export default function Evidence() {
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-risk-green" />
           <h3 className="font-semibold text-white">Published NHS England statistics</h3>
-          <span className="rounded-full bg-risk-green/15 px-2 py-0.5 text-[11px] font-semibold text-risk-green ring-1 ring-risk-green/40">
-            Real
-          </span>
+          <ProvenanceTag kind="real" />
         </div>
         <p className="mb-4 text-xs text-slate-400">
           Ingested directly from NHS England's monthly open data releases — not modelled, not
@@ -189,13 +187,13 @@ export default function Evidence() {
                       layout="vertical"
                       margin={{ left: 8, right: 16, top: 4 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                      <XAxis type="number" domain={[60, 85]} tick={{ fill: "#94a3b8", fontSize: 11 }}
+                      <CartesianGrid stroke={GRID} horizontal={false} />
+                      <XAxis type="number" domain={[60, 85]} tick={TICK} axisLine={{ stroke: AXIS }} tickLine={false}
                              tickFormatter={(v) => `${v}%`} />
                       <YAxis type="category" dataKey="region_name" width={104}
-                             tick={{ fill: "#94a3b8", fontSize: 10 }}
+                             tick={{ fill: "#94a3b8", fontSize: 10 }} axisLine={false} tickLine={false}
                              tickFormatter={(v) => String(v).replace("NHS ENGLAND ", "")} />
-                      <Tooltip content={chartTooltip} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                      <Tooltip content={chartTooltip} cursor={BAR_CURSOR} />
                       {/* barSize is explicit: in a vertical layout Recharts derives a
                           zero height here and the bars render as flat lines. */}
                       <Bar dataKey="four_hour_performance_pct" name="Within 4 hours"
@@ -324,22 +322,29 @@ export default function Evidence() {
         ) : !fa.data?.available || fa.data.series.length === 0 ? (
           <p className="text-sm text-slate-400">No back-test series available yet.</p>
         ) : (
+          <>
+          <ChartLegend className="mb-2" items={[
+            { name: "Actual", color: ACTUAL },
+            { name: "Baseline (naive)", color: SERIES[1], kind: "dashed" },
+            { name: "Model", color: SERIES[0] },
+          ]} />
           <ResponsiveContainer width="100%" height={320}>
             <LineChart
               data={fa.data.series.filter((s) => s.target === "Capacity pressure")}
               margin={{ left: -12, right: 8, top: 8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="date" tick={{ fill: "#94a3b8", fontSize: 11 }} minTickGap={40}
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis dataKey="date" tick={TICK} minTickGap={40} axisLine={{ stroke: AXIS }} tickLine={false}
                      tickFormatter={(v) => String(v).slice(5, 10)} />
-              <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} domain={["auto", "auto"]} />
-              <Tooltip content={chartTooltip} />
-              <Line type="monotone" dataKey="actual" name="Actual" stroke="#94a3b8" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="baseline" name="Baseline (naive)" stroke="#f59e0b"
-                    strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
-              <Line type="monotone" dataKey="predicted" name="Model" stroke="#00C2D1" strokeWidth={2.5} dot={false} />
+              <YAxis tick={TICK} domain={["auto", "auto"]} axisLine={false} tickLine={false} />
+              <Tooltip content={chartTooltip} cursor={CROSSHAIR} />
+              <Line type="monotone" dataKey="actual" name="Actual" stroke={ACTUAL} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="baseline" name="Baseline (naive)" stroke={SERIES[1]}
+                    strokeWidth={2} strokeDasharray="5 4" dot={false} />
+              <Line type="monotone" dataKey="predicted" name="Model" stroke={SERIES[0]} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
+          </>
         )}
         <p className="mt-2 text-xs text-slate-500">
           Most recent back-test fold. The model is fitted on data up to the start of the window

@@ -9,10 +9,23 @@ export default {
           dark: "#003087",
           cyan: "#00C2D1",
         },
+        // Status colours: reserved for meaning (good / warning / critical).
+        // Never used as a series colour on a chart.
         risk: {
           green: "#22c55e",
           amber: "#f59e0b",
           red: "#ef4444",
+        },
+        // Categorical chart series, in fixed order. Validated on the app's
+        // dark chart surface (#0f1527) with the dataviz palette checks:
+        // lightness band, chroma floor, adjacent CVD ΔE ≥ 8, normal-vision
+        // ΔE ≥ 15, contrast ≥ 3:1. Slot 1 is the brand cyan stepped down —
+        // #00C2D1 itself is too light for a 2px line on this surface.
+        series: {
+          1: "#12a5b3",
+          2: "#d95926",
+          3: "#9085e9",
+          4: "#d55181",
         },
         ink: {
           900: "#070b1a",

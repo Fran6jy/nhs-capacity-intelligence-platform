@@ -1,48 +1,61 @@
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { BedDouble, Clock, Stethoscope, TriangleAlert, Users2 } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { BedDouble, Clock, Stethoscope, TriangleAlert, Users2, type LucideIcon } from "lucide-react";
 import { useKpis, usePressure, useRiskDistribution, useRiskTop } from "../lib/api";
-import { AnimatedNumber, GlassCard, RiskPill, SectionTitle, Skeleton } from "../components/ui";
-import { chartTooltip } from "../components/chart";
+import { AnimatedNumber, GlassCard, ProvenanceTag, RiskPill, SectionHeading, SectionTitle, Skeleton } from "../components/ui";
+import { AXIS, ChartFrame, CROSSHAIR, GRID, SERIES, TICK, chartTooltip, fmtNumber } from "../components/chart";
 import OpsPanel from "../components/OpsPanel";
 
 function Kpi({
-  icon: Icon,
-  label,
-  value,
-  decimals = 0,
-  suffix = "",
-  delay,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  decimals?: number;
-  suffix?: string;
-  delay: number;
-}) {
+  icon: Icon, label, value, decimals = 0, suffix = "", delay,
+}: { icon: LucideIcon; label: string; value: number; decimals?: number; suffix?: string; delay: number }) {
   return (
-    <GlassCard delay={delay} className="relative overflow-hidden">
-      <div className="flex items-start justify-between">
-        <div>
+    <GlassCard delay={delay} className="relative overflow-hidden !p-4 sm:!p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
           <p className="mt-2 text-3xl font-bold text-white">
             <AnimatedNumber value={value} decimals={decimals} />
-            <span className="text-lg text-slate-400">{suffix}</span>
+            <span className="ml-0.5 text-lg font-medium text-slate-400">{suffix}</span>
           </p>
         </div>
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-nhs-cyan/10 text-nhs-cyan ring-1 ring-nhs-cyan/20">
-          <Icon className="h-5 w-5" />
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-nhs-cyan/10 text-nhs-cyan ring-1 ring-nhs-cyan/20">
+          <Icon className="h-5 w-5" aria-hidden />
         </div>
       </div>
     </GlassCard>
+  );
+}
+
+/**
+ * One series per chart, one axis each. The previous version plotted capacity
+ * pressure (%) and A&E attendances (count) on two y-axes of one chart, which
+ * invents a relationship by aligning two arbitrary scales.
+ */
+function SmallMultiple({
+  title, data, dataKey, color, unit, id,
+}: { title: string; data: object[]; dataKey: string; color: string; unit: string; id: string }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-slate-300">{title}</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={data} margin={{ left: 0, right: 8, top: 6, bottom: 0 }}>
+          <defs>
+            <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="date_key" tick={TICK} minTickGap={48} axisLine={{ stroke: AXIS }} tickLine={false}
+                 tickFormatter={(v) => String(v).slice(5, 10)} />
+          <YAxis tick={TICK} axisLine={false} tickLine={false} width={48} domain={["auto", "auto"]}
+                 tickFormatter={(v) => (unit === "%" ? `${Number(v).toFixed(1)}%` : fmtNumber(Number(v), 0))} />
+          <Tooltip content={chartTooltip} cursor={CROSSHAIR} />
+          <Area type="monotone" dataKey={dataKey} name={title} stroke={color} fill={`url(#${id})`}
+                strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "#0f1527" }} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -58,12 +71,14 @@ export default function Overview() {
   };
 
   const distMap = Object.fromEntries((dist.data ?? []).map((d) => [d.classification, d.n]));
+  const trend = pressure.data ?? [];
 
   return (
     <div>
       <SectionTitle
+        eyebrow="National position"
         title="Executive Overview"
-        subtitle={`National operational pressure${kpis.data?.latest_date ? ` · latest ${kpis.data.latest_date}` : ""}`}
+        subtitle={`Operational pressure across the modelled trust set${kpis.data?.latest_date ? ` · latest ${kpis.data.latest_date}` : ""}. For NHS England's published figures, see Forecasting and Evidence.`}
       />
 
       {hasError && (
@@ -75,8 +90,11 @@ export default function Overview() {
         </div>
       )}
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="eyebrow">Headline indicators</span>
+        <ProvenanceTag kind="modelled" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         {kpis.isLoading ? (
           Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28" />)
         ) : kpis.data ? (
@@ -92,43 +110,36 @@ export default function Overview() {
         )}
       </div>
 
-      {/* Trend + risk distribution */}
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <GlassCard className="xl:col-span-2" delay={0.1}>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-white">Capacity pressure & A&E demand — 90 days</h3>
-          </div>
-          {pressure.isLoading ? (
-            <Skeleton className="h-72" />
-          ) : pressure.data ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={pressure.data} margin={{ left: -16, right: 8, top: 8 }}>
-                <defs>
-                  <linearGradient id="occ" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#00C2D1" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#00C2D1" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="ae" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0072CE" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#0072CE" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="date_key" tick={{ fill: "#94a3b8", fontSize: 11 }} minTickGap={40} />
-                <YAxis yAxisId="l" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                <YAxis yAxisId="r" orientation="right" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                <Tooltip content={chartTooltip} />
-                <Area yAxisId="l" type="monotone" dataKey="avg_bed_occupancy_pct" name="Capacity pressure %" stroke="#00C2D1" fill="url(#occ)" strokeWidth={2} />
-                <Area yAxisId="r" type="monotone" dataKey="ae_attendances" name="A&E attendances" stroke="#0072CE" fill="url(#ae)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="grid h-72 place-items-center text-sm text-slate-300">Trend data is unavailable.</p>
-          )}
+          <ChartFrame
+            title="Last 90 days"
+            subtitle="Capacity pressure and A&E demand, each on its own scale."
+            right={<ProvenanceTag kind="modelled" />}
+            rows={trend}
+            columns={[
+              { key: "date_key", label: "Date" },
+              { key: "avg_bed_occupancy_pct", label: "Capacity pressure %", align: "right" },
+              { key: "ae_attendances", label: "A&E attendances", align: "right" },
+            ]}
+          >
+            {pressure.isLoading ? (
+              <Skeleton className="h-[420px]" />
+            ) : trend.length ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <SmallMultiple title="Capacity pressure" data={trend} dataKey="avg_bed_occupancy_pct" color={SERIES[0]} unit="%" id="g-occ" />
+                <SmallMultiple title="A&E attendances" data={trend} dataKey="ae_attendances" color={SERIES[1]} unit="" id="g-ae" />
+              </div>
+            ) : (
+              <p className="grid h-72 place-items-center text-sm text-slate-300">Trend data is unavailable.</p>
+            )}
+          </ChartFrame>
         </GlassCard>
 
         <GlassCard delay={0.16}>
-          <h3 className="mb-4 font-semibold text-white">Operational risk</h3>
+          <SectionHeading title="Operational risk" kind="modelled">
+            Composite score per trust, classified Green, Amber or Red.
+          </SectionHeading>
           <div className="flex flex-col gap-3">
             {(["Red", "Amber", "Green"] as const).map((lvl) => {
               const n = distMap[lvl] ?? 0;
@@ -151,26 +162,25 @@ export default function Overview() {
         </GlassCard>
       </div>
 
-      {/* Top risk trusts */}
       <GlassCard className="mt-6" delay={0.2}>
-        <h3 className="mb-4 font-semibold text-white">Top at-risk trusts</h3>
+        <SectionHeading title="Top at-risk trusts" kind="modelled" />
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-slate-400">
               <tr className="border-b border-white/10">
-                <th className="pb-2">Trust</th>
-                <th className="pb-2">Region</th>
-                <th className="pb-2">Risk</th>
-                <th className="pb-2 text-right">Score</th>
+                <th className="pb-2 font-medium">Trust</th>
+                <th className="pb-2 font-medium">Region</th>
+                <th className="pb-2 font-medium">Risk</th>
+                <th className="pb-2 text-right font-medium">Score</th>
               </tr>
             </thead>
             <tbody>
               {(top.data ?? []).map((r, i) => (
-                <tr key={i} className="border-b border-white/5 hover:bg-white/[0.03]">
+                <tr key={i} className="border-b border-white/5 transition hover:bg-white/[0.03]">
                   <td className="py-2.5 pr-4 text-slate-200">{r.hospital_name}</td>
                   <td className="py-2.5 pr-4 text-slate-400">{r.region_name}</td>
                   <td className="py-2.5"><RiskPill level={r.classification} /></td>
-                  <td className="py-2.5 text-right font-mono text-slate-200">{r.score?.toFixed(3)}</td>
+                  <td className="py-2.5 text-right tabular-nums text-slate-200">{r.score?.toFixed(3)}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ShieldCheck } from "lucide-react";
 import { useProviderRisk, useRiskRegional, type ProviderRisk } from "../lib/api";
-import { GlassCard, SectionTitle, Skeleton } from "../components/ui";
+import { GlassCard, ProvenanceTag, SectionTitle, Skeleton } from "../components/ui";
 import clsx from "clsx";
 
 function scoreColor(s: number) {
@@ -136,7 +136,7 @@ export default function RiskMap() {
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-risk-green" />
           <h3 className="font-semibold text-white">Highest-risk NHS providers</h3>
-          <span className="rounded-full bg-risk-green/15 px-2 py-0.5 text-[11px] font-semibold text-risk-green ring-1 ring-risk-green/40">Real</span>
+          <ProvenanceTag kind="real" />
         </div>
         <p className="mb-4 text-xs text-slate-400">
           Every provider NHS England publishes an RTT waiting list or A&E activity for, ranked worst first.
@@ -146,7 +146,7 @@ export default function RiskMap() {
 
       <div className="mb-3 mt-8 flex flex-wrap items-center gap-2">
         <h3 className="font-semibold text-white">Regional composite — modelled daily series</h3>
-        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-slate-300 ring-1 ring-white/15">Modelled</span>
+        <ProvenanceTag kind="modelled" />
       </div>
 
       {q.isLoading ? (
