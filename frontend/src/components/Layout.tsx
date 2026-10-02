@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
   LayoutDashboard,
+  Radio,
   LineChart,
   Users,
   Map,
@@ -21,6 +22,7 @@ const NAV = [
   { to: "/risk", label: "Risk Map", short: "Risk", icon: Map },
   { to: "/ai", label: "AI Insights", short: "AI", icon: Sparkles },
   { to: "/evidence", label: "Evidence & Validation", short: "Evidence", icon: ShieldCheck },
+  { to: "/operations", label: "Daily operations (demo)", short: "Demo", icon: Radio },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -129,7 +131,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Bottom tab bar (mobile / tablet) — the sidebar does not exist below lg. */}
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-white/10 bg-ink-900/90 px-1 pb-[max(env(safe-area-inset-bottom),4px)] pt-1 backdrop-blur-xl lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-white/10 bg-ink-900/90 px-1 pb-[max(env(safe-area-inset-bottom),4px)] pt-1 backdrop-blur-xl lg:hidden"
           aria-label="Pages"
         >
           {NAV.map((n) => (

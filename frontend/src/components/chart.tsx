@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import type { TooltipProps } from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Table2, LineChart as LineIcon } from "lucide-react";
 import clsx from "clsx";
 
@@ -155,5 +156,38 @@ export function ChartFrame<T extends object>({
         )}
       </div>
     </section>
+  );
+}
+
+
+/** One series, one axis. Two of these side by side replace a dual-axis chart. */
+export function SmallMultiple({
+  title, data, dataKey, xKey, color, unit, id, tickFmt, height = 200,
+}: {
+  title: string; data: object[]; dataKey: string; xKey: string; color: string; unit: string; id: string;
+  tickFmt?: (v: unknown) => string; height?: number;
+}) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-slate-300">{title}</p>
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart data={data} margin={{ left: 0, right: 8, top: 6, bottom: 0 }}>
+          <defs>
+            <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey={xKey} tick={TICK} minTickGap={48} axisLine={{ stroke: AXIS }} tickLine={false}
+                 tickFormatter={tickFmt ?? ((v) => String(v).slice(5, 10))} />
+          <YAxis tick={TICK} axisLine={false} tickLine={false} width={52} domain={["auto", "auto"]}
+                 tickFormatter={(v) => (unit === "%" ? `${Number(v).toFixed(1)}%` : fmtNumber(Number(v), 0))} />
+          <Tooltip content={chartTooltip} cursor={CROSSHAIR} />
+          <Area type="monotone" dataKey={dataKey} name={title} stroke={color} fill={`url(#${id})`}
+                strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "#0f1527" }} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
