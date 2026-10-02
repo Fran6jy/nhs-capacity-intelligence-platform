@@ -12,7 +12,7 @@
 | **Feature Engineering** | PySpark (Spark), Pandas fallback | Rolling means, lags, seasonal flags, regional z-scores |
 | **ML Serving** | Prophet, XGBoost, LightGBM | 30/60/90-day forecasts |
 | **Risk Engine** | NumPy/SciPy composite | Weighted G/A/R classification |
-| **LLM Layer** | OpenAI API (or local Ollama) + LangChain | NL→SQL, RAG, multi-agent |
+| **LLM Layer** | OpenAI API (or local Ollama) + LangChain | tiered NL→SQL, RAG |
 | **Dashboard** | Streamlit, Power BI | Interactive & executive views |
 
 ---
@@ -118,7 +118,7 @@ Computed daily per `hospital_id`, also aggregated to region.
 4. **Executor** runs the query against DuckDB.
 5. **RAG context builder** packages rows + recent forecasts + risk + meta into a prompt.
 6. **LLM** (OpenAI `gpt-4o-mini` or local) generates a structured response: explanation, quantified insight, forecast, recommendations.
-7. **Multi-agent** fan-out: Forecaster, Workforce, Risk, and Executive agents collaborate to synthesise the final answer.
+7. **Tiered routing**: a reviewed query answers what it covers, model-generated SQL handles the long tail and is labelled as such, and anything neither can answer is refused rather than guessed. The executed SQL is returned with every answer.
 
 ---
 

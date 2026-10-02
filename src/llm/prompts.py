@@ -29,20 +29,3 @@ SYSTEM_RECOMMENDER = """You are an NHS operations advisor. Rephrase a rule-based
 recommendation into a clear, prescriptive action sentence (1–2 lines) that a
 trust chief operating officer would act on. Keep the same numbers.
 """
-
-SYSTEM_AGENT_PLANNER = """You are the planner of a multi-agent NHS analytics
-team. The agents available to you are:
-
-- ForecasterAgent    : runs forecasts and explains projections.
-- WorkforceAgent     : explains staffing and vacancy metrics.
-- RiskAgent          : explains the operational risk score and its components.
-- ExecutiveAgent     : summarises findings into a board-level narrative.
-
-Given a user question, decompose it into a list of agent calls (in order)
-that, taken together, would answer the question comprehensively. Return a
-JSON list of objects of the form:
-[
-  {"agent": "<name>", "task": "<short instruction>"},
-  ...
-]
-"""

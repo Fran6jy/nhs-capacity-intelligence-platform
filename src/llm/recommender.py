@@ -1,11 +1,15 @@
 """Recommendation engine — prescriptive actions for at-risk trusts.
 
-The engine blends rule-based logic on the latest risk score with
-LLM-generated action text so outputs are (a) deterministic and
-(b) human-readable. It writes rows to `recommendation` in the warehouse.
+Rule-based on the latest risk score and its components, optionally reworded
+by an LLM for readability (off by default). Each recommendation states the
+evidence that triggered it; it does not claim an expected effect size, because
+none of these rules is backed by an intervention study. Writes rows to
+`recommendation` in the warehouse.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date
 
 import duckdb
@@ -18,47 +22,53 @@ log = get_logger("recommender")
 
 
 # --------------------------------------------------------------------- rules
-# Threshold-based, deterministic. The recommender LLM can embellish later.
-RULES = [
-    {
-        "category": "Staffing",
-        "trigger": lambda r: r.get("vacancy_rate", 0) > 9,
-        "action_template": (
-            "Trust {hospital_id} has a {vacancy_rate:.1f}% vacancy rate. "
-            "Open international recruitment + bank incentive shifts; prioritise "
-            "the {top_role} role."
+# Threshold-based and deterministic. Each rule states the evidence that fired
+# it and the category of response. It does not state an expected effect size:
+# "reduce vacancies by ~3pp in 60 days" and "open 8–12 surge beds" were
+# invented numbers with no evidence base, which is a credibility liability in
+# a clinical-operations context. An outcome claim belongs here only when it
+# can cite the intervention study it came from.
+@dataclass(frozen=True)
+class Rule:
+    category: str
+    trigger: Callable[[dict], bool]
+    action_template: str
+
+
+RULES: tuple[Rule, ...] = (
+    Rule(
+        category="Staffing",
+        trigger=lambda r: r.get("vacancy_rate", 0) > 9,
+        action_template=(
+            "Vacancy rate is {vacancy_rate:.1f}%, above the 9% trigger. Review recruitment "
+            "and bank/agency cover, prioritising the {top_role} role where the gap is widest."
         ),
-        "expected_impact": "Reduce vacancy rate by ~3pp in 60 days.",
-    },
-    {
-        "category": "Capacity",
-        "trigger": lambda r: r.get("bed_occupancy_pct", 0) > 92,
-        "action_template": (
-            "Bed occupancy at {bed_occupancy_pct:.1f}% — open 8–12 surge beds "
-            "and review discharge pathway for the 5 longest-stay patients."
+    ),
+    Rule(
+        category="Capacity",
+        trigger=lambda r: r.get("bed_occupancy_pct", 0) > 92,
+        action_template=(
+            "Bed occupancy is {bed_occupancy_pct:.1f}%, above the 92% trigger. Review surge "
+            "capacity options and the discharge pathway for long-stay patients."
         ),
-        "expected_impact": "Drop occupancy below 90% within 14 days.",
-    },
-    {
-        "category": "Workload",
-        "trigger": lambda r: r.get("waiting_list_growth_30d", 0) > 0.08,
-        "action_template": (
-            "Waiting list grew {waiting_list_growth_30d*100:.1f}% in 30 days. "
-            "Redistribute elective lists to partner trusts and extend weekend clinics."
+    ),
+    Rule(
+        category="Workload",
+        trigger=lambda r: r.get("waiting_list_growth_30d", 0) > 0.08,
+        action_template=(
+            "Waiting list grew {waiting_list_growth_30d_pct:.1f}% in 30 days, above the 8% "
+            "trigger. Review elective list distribution and additional clinic capacity."
         ),
-        "expected_impact": "Stabilise list size within 45 days.",
-    },
-    {
-        "category": "Pathway",
-        "trigger": lambda r: r.get("ae_surge_index", 0) > 0.2,
-        "action_template": (
-            "A&E attendances {ae_surge_pct:.0f}% above 7-day baseline. "
-            "Activate same-day emergency care unit and divert ambulatory cases "
-            "to urgent treatment centres."
+    ),
+    Rule(
+        category="Pathway",
+        trigger=lambda r: r.get("ae_surge_index", 0) > 0.2,
+        action_template=(
+            "A&E attendances are {ae_surge_pct:.0f}% above the trust's 7-day baseline, past "
+            "the 20% trigger. Review same-day emergency care and ambulatory diversion."
         ),
-        "expected_impact": "Restore A&E flow to baseline within 7 days.",
-    },
-]
+    ),
+)
 
 
 def _role_with_highest_vacancy(workforce: pd.DataFrame, trust_code: str) -> str:
@@ -175,6 +185,7 @@ def generate_recommendations() -> pd.DataFrame:
             "vacancy_rate":       float(r.get("vacancy_rate") or 0),
             "ae_surge_index":     float(r.get("ae_surge_index") or 0),
             "waiting_list_growth_30d": float(r.get("waiting_list_growth_30d") or 0),
+            "waiting_list_growth_30d_pct": float(r.get("waiting_list_growth_30d") or 0) * 100,
             "ae_surge_pct":       float(r.get("ae_surge_index") or 0) * 100,
             "top_role":           _role_with_highest_vacancy(workforce, r.get("trust_code") or ""),
         }
@@ -182,8 +193,8 @@ def generate_recommendations() -> pd.DataFrame:
             continue
         severity = "High" if r["classification"] == "Red" else "Medium"
         for rule in RULES:
-            if rule["trigger"](comps):
-                action_text = rule["action_template"].format(**comps)
+            if rule.trigger(comps):
+                action_text = rule.action_template.format(**comps)
                 action_text = _run_llm_action(action_text)
                 rows.append(
                     {
@@ -191,9 +202,10 @@ def generate_recommendations() -> pd.DataFrame:
                         "date_key": today,
                         "hospital_id": comps["hospital_id"],
                         "severity": severity,
-                        "category": rule["category"],
+                        "category": rule.category,
                         "action": action_text,
-                        "expected_impact": rule["expected_impact"],
+                        # Deliberately empty: no evidenced effect size to report.
+                        "expected_impact": None,
                     }
                 )
                 rid += 1
