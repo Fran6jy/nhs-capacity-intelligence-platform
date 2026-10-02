@@ -230,6 +230,21 @@ grain is necessarily modelled — every page labels real and modelled figures
 per source rather than blurring the line, and the daily models are back-tested
 against trivial baselines on the Evidence page.
 
+### How the figures are presented
+
+Every section carries a provenance tag — **Real** (published by NHS England), **Modelled**
+(synthetic or model-derived) or **Simulated live** (the digital twin) — and the header
+repeats the key on every page, so a reader never has to guess whose number they are
+looking at.
+
+Charts follow a small fixed rulebook: one axis per chart (no dual y-axes), a fixed
+categorical series palette validated for colour-vision separation and contrast on the
+app's dark surface, status colours reserved for meaning and never used as series
+identity, a legend on every multi-series chart, solid hairline grids, and a table-view
+twin on every chart for readers who cannot or would rather not read colour. The app has
+a bottom tab bar on phones, visible focus rings, a skip link, and honours the OS
+reduced-motion preference.
+
 > **Note:** Every external source has a synthetic fallback, so the full pipeline runs offline with no
 > NHS/ONS/Met Office credentials. The LLM layer defaults to **Claude** (`LLM_PROVIDER=anthropic`); with no
 > API key it falls back to a local echo model so the web app and RAG chat still function. Set
