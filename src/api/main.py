@@ -10,6 +10,10 @@ coerced to null so the React frontend gets clean payloads.
 from __future__ import annotations
 
 import math
+import threading
+import time
+import uuid
+from collections import defaultdict, deque
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -51,6 +55,76 @@ async def api_key_guard(request: Request, call_next):
         exempt = path == "/api/health" or not path.startswith("/api")
         if not exempt and request.headers.get("x-api-key") != settings.api_key:
             return JSONResponse({"detail": "invalid or missing API key"}, status_code=401)
+    return await call_next(request)
+
+
+class _TokenBucket:
+    """Per-client sliding-window limiter, in memory.
+
+    Good enough for a single-process API; on a multi-replica deployment this
+    becomes per-replica, which still bounds abuse, just at N times the limit.
+    Swap for a shared store if replicas ever matter.
+    """
+
+    def __init__(self, per_minute: int) -> None:
+        self.per_minute = per_minute
+        self._hits: dict[str, deque[float]] = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def allow(self, key: str, now: float | None = None) -> bool:
+        now = now if now is not None else time.monotonic()
+        with self._lock:
+            q = self._hits[key]
+            while q and now - q[0] > 60.0:
+                q.popleft()
+            if len(q) >= self.per_minute:
+                return False
+            q.append(now)
+            return True
+
+
+ask_limiter = _TokenBucket(settings.ask_rate_limit_per_minute)
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    """Request ID, latency and status on every call.
+
+    Without this, one slow endpoint is invisible: the structured logs say what
+    happened inside a handler but never how long the request took or which
+    request a given log line belongs to. The ID is echoed in the response so
+    a user-reported failure can be found in the logs.
+    """
+    rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        log.error("api.request_failed", request_id=rid, method=request.method,
+                  path=request.url.path, ms=round((time.perf_counter() - start) * 1000, 1))
+        raise
+    ms = round((time.perf_counter() - start) * 1000, 1)
+    response.headers["X-Request-ID"] = rid
+    response.headers["Server-Timing"] = f"app;dur={ms}"
+    level = log.warning if ms > 5000 or response.status_code >= 500 else log.info
+    level("api.request", request_id=rid, method=request.method, path=request.url.path,
+          status=response.status_code, ms=ms)
+    return response
+
+
+@app.middleware("http")
+async def ask_rate_limit(request: Request, call_next):
+    """Bound paid model calls per client on POST /api/ask."""
+    if request.method == "POST" and request.url.path == "/api/ask":
+        client = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+            request.client.host if request.client else "unknown"
+        )
+        if not ask_limiter.allow(client):
+            return JSONResponse(
+                {"detail": f"rate limit: {settings.ask_rate_limit_per_minute} questions per minute"},
+                status_code=429,
+                headers={"Retry-After": "60"},
+            )
     return await call_next(request)
 
 

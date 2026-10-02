@@ -104,6 +104,15 @@ class Settings:
     # Optional API-key auth. When set, every /api/* route (except health) requires
     # an `X-API-Key` header matching this value; when unset, the API is open.
     api_key: str | None = _env("API_KEY")
+    # POST /api/ask triggers a paid model call per request. Without a ceiling,
+    # anyone with the URL can run up the bill; with one, abuse is bounded.
+    ask_rate_limit_per_minute: int = int(_env_str("ASK_RATE_LIMIT_PER_MINUTE", "20"))
+
+    # ---- LLM client limits ----
+    # Every endpoint is a sync `def`, so a hung model call blocks a worker
+    # thread for as long as the client lets it. Bound it.
+    llm_timeout_seconds: float = float(_env_str("LLM_TIMEOUT_SECONDS", "45"))
+    llm_max_retries: int = int(_env_str("LLM_MAX_RETRIES", "2"))
     # Comma-separated allowed CORS origins for the React frontend.
     cors_origins: tuple[str, ...] = tuple(
         o.strip() for o in _env_str(

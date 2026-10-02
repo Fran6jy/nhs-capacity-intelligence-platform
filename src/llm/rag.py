@@ -2,8 +2,11 @@
 no-op fallback that returns canned responses — keeping the app usable without
 an API key.
 
-Set `LLM_PROVIDER=openai` (default) and `OPENAI_API_KEY=sk-…` to enable
-the real model.
+The default provider is Anthropic (`LLM_PROVIDER=anthropic`); set
+`LLM_PROVIDER=openrouter|openai|azure|ollama` to switch. Every network client
+is constructed with a timeout and a retry ceiling from settings, because each
+API endpoint is a sync `def` and an unbounded model call blocks a worker
+thread for as long as the client allows.
 """
 from __future__ import annotations
 
@@ -89,6 +92,8 @@ def get_llm():
             client = OpenAI(
                 api_key=settings.openrouter_api_key,
                 base_url=settings.openrouter_base_url,
+                timeout=settings.llm_timeout_seconds,
+                max_retries=settings.llm_max_retries,
             )
             return _OpenAICompatLLM(client, settings.openrouter_model)
         except Exception as exc:  # noqa: BLE001
@@ -99,7 +104,11 @@ def get_llm():
             import anthropic
             log.info("llm.anthropic_init", model=settings.anthropic_model)
             return _AnthropicLLM(
-                anthropic.Anthropic(api_key=settings.anthropic_api_key),
+                anthropic.Anthropic(
+                    api_key=settings.anthropic_api_key,
+                    timeout=settings.llm_timeout_seconds,
+                    max_retries=settings.llm_max_retries,
+                ),
                 settings.anthropic_model,
             )
         except Exception as exc:  # noqa: BLE001
@@ -111,7 +120,9 @@ def get_llm():
             log.info("llm.openai_init", model=settings.openai_model)
             return ChatOpenAI(model=settings.openai_model,
                               api_key=settings.openai_api_key,
-                              temperature=0.2)
+                              temperature=0.2,
+                              timeout=settings.llm_timeout_seconds,
+                              max_retries=settings.llm_max_retries)
         except Exception as exc:  # noqa: BLE001
             log.warning("llm.openai_failed", error=str(exc))
 

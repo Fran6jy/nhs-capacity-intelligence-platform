@@ -1,23 +1,43 @@
-# FastAPI backend image (serves the React frontend + Power BI from PostgreSQL).
-FROM python:3.11-slim
+# FastAPI backend image, served from PostgreSQL.
+#
+# Two stages. The builder has the compilers some wheels need; the runtime
+# image carries only the installed packages and the application. The
+# single-stage version shipped build-essential into production for no reason,
+# which doubled the image and widened its attack surface.
 
-WORKDIR /app
+# ---------------------------------------------------------------- builder --
+FROM python:3.11-slim AS builder
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential curl \
+        build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /build
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip && pip install --prefix=/install -r requirements.txt
 
-COPY src ./src
-COPY scripts ./scripts
-COPY sql ./sql
+# ---------------------------------------------------------------- runtime --
+FROM python:3.11-slim
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# curl only for the container health check.
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 app
+
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+COPY --chown=app:app src ./src
+COPY --chown=app:app scripts ./scripts
+COPY --chown=app:app sql ./sql
+
+USER app
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
