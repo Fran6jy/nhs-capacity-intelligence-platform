@@ -254,6 +254,8 @@ export interface MonthlyMetric {
   baseline_mae: number;
   skill: number;
   n_eval: number;
+  /** How many candidate models competed on the same folds. */
+  candidates_tried: number;
 }
 export interface ProviderRisk {
   org_code: string;

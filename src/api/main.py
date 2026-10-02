@@ -560,7 +560,7 @@ def nhs_forecast_metrics() -> dict:
     df = db.read_sql(
         """
         SELECT target, model, folds, horizon_months, unit, mae, mae_std, mape, mase,
-               baseline, baseline_mae, skill, n_eval
+               baseline, baseline_mae, skill, n_eval, candidates_tried
         FROM nhs_monthly_metrics WHERE folds > 0 ORDER BY target
         """
     )

@@ -1,31 +1,30 @@
-"""National monthly forecasts on real NHS England series.
+"""National monthly forecasts on real NHS England series, chosen by back-test.
 
-This is the forecasting layer running on data NHS England actually
-publishes — the monthly RTT waiting list back to 2007 and 36 months of A&E
-activity — rather than on the synthetic daily fact table. Monthly grain is
-the grain the data has, so nothing here implies a precision the source
-cannot support.
+The first version of this module fitted Prophet to every series and reported
+negative skill on all six against "same month last year" — on the RTT waiting
+list, skill −5.5, because a linear trend fitted across the 2020 regime break
+extrapolates it. A single model for every series was the mistake.
 
-Method
-------
-Prophet with yearly seasonality (legitimate here: the shortest series has
-three annual cycles, the RTT series has nineteen), linear growth, and a
-changepoint prior damped for slow-moving operational series. Every forecast
-is back-tested on rolling origins against the **seasonal naive** — the same
-month last year — which is the baseline that matters for annual-cycle data.
-Skill is reported against it; a model that cannot beat "same month last year"
-has no business issuing a 12-month outlook.
+Each series is now forecast by whichever candidate has the lowest error on
+identical rolling-origin folds. The candidates span the methods that actually
+win on operational series — seasonal naive, drift, seasonal drift, damped
+Holt-Winters, Theta, and Prophet on the recent regime only — and the chosen
+model is named in the metrics and on the page. If nothing beats the seasonal
+naive, the seasonal naive *is* the forecast and the skill reads zero. That is
+the honest outcome, and it is far better than a confident curve from a model
+that lost the back-test.
 
-Prediction intervals are split-conformal from the back-test residuals, so they
-are as wide as the model has actually been wrong, not as wide as a multiplier.
+Prediction intervals are split-conformal from the winner's pooled fold
+residuals, so they are as wide as that model has actually been wrong.
 """
 from __future__ import annotations
 
+import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from prophet import Prophet
 
 from src.models._common import bias_and_offsets, mase
 from src.utils.logging import get_logger
@@ -37,6 +36,9 @@ HORIZON_MONTHS = 12
 HOLDOUT_MONTHS = 6
 N_FOLDS = 3
 MIN_TRAIN_MONTHS = 24
+PROPHET_WINDOW = 60  # months: the recent regime, not the 2007 history
+
+Forecaster = Callable[[np.ndarray, int], np.ndarray]
 
 
 @dataclass(frozen=True)
@@ -48,132 +50,214 @@ class MonthlySeries:
     unit: str = ""
 
 
-def _to_prophet(frame: pd.DataFrame) -> pd.DataFrame:
-    df = pd.DataFrame({
-        "ds": pd.to_datetime(frame["period"] + "-01"),
-        "y": pd.to_numeric(frame["value"], errors="coerce"),
-    }).dropna().sort_values("ds").reset_index(drop=True)
-    return df
+# --------------------------------------------------------------------------- #
+# Candidates — each maps (history, horizon) -> point forecast
+# --------------------------------------------------------------------------- #
+def seasonal_naive(y: np.ndarray, h: int) -> np.ndarray:
+    """Same month last year. The baseline every other candidate must beat."""
+    out, buf = [], list(y)
+    for _ in range(h):
+        out.append(buf[-SEASONAL_PERIOD] if len(buf) >= SEASONAL_PERIOD else buf[-1])
+        buf.append(out[-1])
+    return np.asarray(out, dtype=float)
 
 
-def _fit(daily: pd.DataFrame) -> Prophet:
+def drift(y: np.ndarray, h: int) -> np.ndarray:
+    """Last value plus the series' average monthly change."""
+    slope = (y[-1] - y[0]) / max(len(y) - 1, 1)
+    return y[-1] + slope * np.arange(1, h + 1)
+
+
+def seasonal_drift(y: np.ndarray, h: int) -> np.ndarray:
+    """Same month last year, shifted by the mean year-on-year change of the last year."""
+    if len(y) < 2 * SEASONAL_PERIOD:
+        return seasonal_naive(y, h)
+    yoy = float(np.mean(y[-SEASONAL_PERIOD:] - y[-2 * SEASONAL_PERIOD:-SEASONAL_PERIOD]))
+    return seasonal_naive(y, h) + yoy
+
+
+def holt_winters_damped(y: np.ndarray, h: int) -> np.ndarray:
+    """Additive damped trend + additive annual seasonality."""
+    if len(y) < 2 * SEASONAL_PERIOD + 2:
+        return drift(y, h)
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = ExponentialSmoothing(
+            y, trend="add", damped_trend=True, seasonal="add",
+            seasonal_periods=SEASONAL_PERIOD, initialization_method="estimated",
+        ).fit(optimized=True)
+    return np.asarray(model.forecast(h), dtype=float)
+
+
+def theta(y: np.ndarray, h: int) -> np.ndarray:
+    if len(y) < 2 * SEASONAL_PERIOD + 2:
+        return drift(y, h)
+    from statsmodels.tsa.forecasting.theta import ThetaModel
+
+    idx = pd.period_range("2000-01", periods=len(y), freq="M")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = ThetaModel(pd.Series(y, index=idx), period=SEASONAL_PERIOD).fit()
+    return np.asarray(model.forecast(h).values, dtype=float)
+
+
+def prophet_recent(y: np.ndarray, h: int) -> np.ndarray:
+    """Prophet on the last PROPHET_WINDOW months only.
+
+    Fitted across the whole history it learns the 2020 break as trend and
+    extrapolates it; on the recent regime it is competitive.
+    """
+    from prophet import Prophet
+
+    yy = y[-PROPHET_WINDOW:] if len(y) > PROPHET_WINDOW else y
+    ds = pd.date_range("2000-01-01", periods=len(yy), freq="MS")
     m = Prophet(
-        growth="linear",
-        yearly_seasonality=True,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        changepoint_prior_scale=0.05,
-        seasonality_mode="additive",
+        yearly_seasonality=len(yy) >= 2 * SEASONAL_PERIOD,
+        weekly_seasonality=False, daily_seasonality=False, changepoint_prior_scale=0.05,
     )
-    m.fit(daily)
-    return m
+    m.fit(pd.DataFrame({"ds": ds, "y": yy}))
+    future = pd.DataFrame({"ds": pd.date_range(ds[-1] + pd.offsets.MonthBegin(1), periods=h, freq="MS")})
+    return np.asarray(m.predict(future)["yhat"].values, dtype=float)
 
 
-def _predict(model: Prophet, last: pd.Timestamp, months: int) -> pd.DataFrame:
-    future = pd.DataFrame({"ds": pd.date_range(last + pd.offsets.MonthBegin(1), periods=months, freq="MS")})
-    return model.predict(future)[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+CANDIDATES: dict[str, Forecaster] = {
+    "seasonal_naive": seasonal_naive,
+    "drift": drift,
+    "seasonal_drift": seasonal_drift,
+    "holt_winters_damped": holt_winters_damped,
+    "theta": theta,
+    "prophet_recent_60m": prophet_recent,
+}
+BASELINE = "seasonal_naive"
 
 
-def _seasonal_naive(history: pd.Series, horizon: int) -> np.ndarray:
-    h = list(np.asarray(history, dtype=float))
-    out = []
-    for _ in range(horizon):
-        out.append(h[-SEASONAL_PERIOD] if len(h) >= SEASONAL_PERIOD else h[-1])
-        h.append(out[-1])
-    return np.asarray(out)
+# --------------------------------------------------------------------------- #
+# Back-test and selection
+# --------------------------------------------------------------------------- #
+def _values(series: MonthlySeries) -> tuple[np.ndarray, list[str]]:
+    f = series.frame.dropna(subset=["value"]).sort_values("period")
+    return pd.to_numeric(f["value"], errors="coerce").to_numpy(dtype=float), list(f["period"])
 
 
-def backtest(series: MonthlySeries) -> tuple[dict, pd.Series]:
-    """Rolling-origin back-test; returns the metrics row and the pooled residuals."""
-    df = _to_prophet(series.frame)
-    rows, residuals = [], []
-    n = len(df)
-    for i in range(N_FOLDS, 0, -1):
-        cut = n - i * HOLDOUT_MONTHS
-        if cut < MIN_TRAIN_MONTHS:
-            continue
-        train, hold = df.iloc[:cut], df.iloc[cut:cut + HOLDOUT_MONTHS]
-        if hold.empty:
-            continue
-        try:
-            fc = _predict(_fit(train), train["ds"].iat[-1], len(hold))
-        except Exception as exc:  # noqa: BLE001
-            log.warning("monthly.fold_failed", target=series.target, error=str(exc))
-            continue
-        pred = fc["yhat"].values
-        actual = hold["y"].values
-        naive = _seasonal_naive(train["y"], len(hold))
-        mae = float(np.mean(np.abs(actual - pred)))
-        naive_mae = float(np.mean(np.abs(actual - naive)))
-        rows.append({
-            "mae": mae, "naive_mae": naive_mae,
-            "mape": float(np.mean(np.abs((actual - pred) / np.where(actual == 0, np.nan, actual))) * 100),
-            "mase": mase(actual, pred, train["y"].values, SEASONAL_PERIOD),
-            "skill": 1 - mae / naive_mae if naive_mae else float("nan"),
-            "n": len(hold),
-        })
-        residuals.extend((actual - pred).tolist())
-
-    if not rows:
-        return {"target": series.target, "model": "prophet", "folds": 0}, pd.Series(dtype=float)
-    r = pd.DataFrame(rows)
-    metrics = {
-        "target": series.target, "model": "prophet", "folds": len(r),
-        "horizon_months": HOLDOUT_MONTHS, "unit": series.unit,
-        "mae": round(float(r["mae"].mean()), 3),
-        "mae_std": round(float(r["mae"].std()), 3) if len(r) > 1 else None,
-        "mape": round(float(r["mape"].mean()), 3),
-        "mase": round(float(r["mase"].mean()), 3),
-        "baseline": "seasonal_naive_12m",
-        "baseline_mae": round(float(r["naive_mae"].mean()), 3),
-        "skill": round(float(r["skill"].mean()), 3),
-        "n_eval": int(r["n"].sum()),
-    }
-    return metrics, pd.Series(residuals, dtype=float)
+def _folds(n: int) -> list[int]:
+    return [n - i * HOLDOUT_MONTHS for i in range(N_FOLDS, 0, -1) if n - i * HOLDOUT_MONTHS >= MIN_TRAIN_MONTHS]
 
 
-def forecast(series: MonthlySeries, residuals: pd.Series) -> pd.DataFrame:
-    """Twelve-month forecast with conformal intervals from the back-test residuals."""
-    df = _to_prophet(series.frame)
-    if len(df) < MIN_TRAIN_MONTHS:
-        raise ValueError(f"{series.target}: need {MIN_TRAIN_MONTHS} months, have {len(df)}")
-    fc = _predict(_fit(df), df["ds"].iat[-1], HORIZON_MONTHS)
-    bias, lo, hi = bias_and_offsets(residuals.values, level=0.8)
-    fc["yhat"] = fc["yhat"] + bias
-    if np.isfinite(lo) and np.isfinite(hi):
-        fc["yhat_lower"], fc["yhat_upper"] = fc["yhat"] + lo, fc["yhat"] + hi
+@dataclass
+class Selection:
+    model: str
+    mae: float
+    mae_std: float | None
+    mape: float
+    mase: float
+    baseline_mae: float
+    skill: float
+    folds: int
+    n_eval: int
+    residuals: pd.Series
+    candidates: dict[str, float]  # model -> mean MAE
+
+
+def backtest(series: MonthlySeries) -> Selection | None:
+    """Score every candidate on the same folds; return the winner's record."""
+    y, _ = _values(series)
+    cuts = _folds(len(y))
+    if not cuts:
+        return None
+
+    results: dict[str, dict] = {}
+    for name, fn in CANDIDATES.items():
+        maes: list[float] = []
+        mapes: list[float] = []
+        mases: list[float] = []
+        resid: list[float] = []
+        for cut in cuts:
+            train, hold = y[:cut], y[cut:cut + HOLDOUT_MONTHS]
+            try:
+                pred = np.asarray(fn(train, len(hold)), dtype=float)
+                if pred.shape != hold.shape or not np.all(np.isfinite(pred)):
+                    raise ValueError("bad forecast shape or non-finite values")
+            except Exception as exc:  # noqa: BLE001
+                log.debug("monthly.candidate_failed", target=series.target, model=name, error=str(exc))
+                maes = []
+                break
+            err = hold - pred
+            maes.append(float(np.mean(np.abs(err))))
+            nz = hold != 0
+            mapes.append(float(np.mean(np.abs(err[nz] / hold[nz])) * 100) if nz.any() else float("nan"))
+            mases.append(mase(hold, pred, train, SEASONAL_PERIOD))
+            resid.extend(err.tolist())
+        if maes:
+            results[name] = {"mae": float(np.mean(maes)), "mae_std": float(np.std(maes)) if len(maes) > 1 else None,
+                             "mape": float(np.nanmean(mapes)), "mase": float(np.nanmean(mases)),
+                             "resid": pd.Series(resid, dtype=float)}
+
+    if BASELINE not in results:
+        return None
+    baseline_mae = results[BASELINE]["mae"]
+    winner = min(results, key=lambda k: results[k]["mae"])
+    w = results[winner]
+    return Selection(
+        model=winner, mae=w["mae"], mae_std=w["mae_std"], mape=w["mape"], mase=w["mase"],
+        baseline_mae=baseline_mae,
+        skill=(1 - w["mae"] / baseline_mae) if baseline_mae else float("nan"),
+        folds=len(cuts), n_eval=len(cuts) * HOLDOUT_MONTHS, residuals=w["resid"],
+        candidates={k: v["mae"] for k, v in results.items()},
+    )
+
+
+def forecast(series: MonthlySeries, choice: Selection) -> pd.DataFrame:
+    """Twelve-month forecast from the selected model, with conformal intervals."""
+    y, periods = _values(series)
+    if len(y) < MIN_TRAIN_MONTHS:
+        raise ValueError(f"{series.target}: need {MIN_TRAIN_MONTHS} months, have {len(y)}")
+    yhat = np.asarray(CANDIDATES[choice.model](y, HORIZON_MONTHS), dtype=float)
+    bias, lo, hi = bias_and_offsets(choice.residuals.values, level=0.8)
+    yhat = yhat + bias
+    start = pd.Period(periods[-1], freq="M") + 1
+    future = pd.period_range(start, periods=HORIZON_MONTHS, freq="M").strftime("%Y-%m")
     out = pd.DataFrame({
-        "target": series.target,
-        "period": fc["ds"].dt.strftime("%Y-%m"),
-        "yhat": fc["yhat"].round(2),
-        "yhat_lower": fc["yhat_lower"].round(2),
-        "yhat_upper": fc["yhat_upper"].round(2),
-        "model": "prophet",
-        "unit": series.unit,
+        "target": series.target, "period": future,
+        "yhat": np.round(yhat, 2),
+        "yhat_lower": np.round(yhat + (lo if np.isfinite(lo) else 0.0), 2),
+        "yhat_upper": np.round(yhat + (hi if np.isfinite(hi) else 0.0), 2),
+        "model": choice.model, "unit": series.unit,
     })
     return out
 
 
 def run_all(series_list: list[MonthlySeries]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Back-test and forecast every series; returns (forecasts, metrics)."""
-    fcs, mets = [], []
+    """Back-test, select and forecast every series; returns (forecasts, metrics)."""
+    fcs: list[pd.DataFrame] = []
+    mets: list[dict[str, object]] = []
     for s in series_list:
-        metrics, resid = backtest(s)
-        mets.append(metrics)
-        if metrics.get("folds", 0) == 0:
+        choice = backtest(s)
+        if choice is None:
             log.warning("monthly.skipped", target=s.target, months=len(s.frame))
+            mets.append({"target": s.target, "model": None, "folds": 0, "unit": s.unit})
             continue
+        mets.append({
+            "target": s.target, "model": choice.model, "folds": choice.folds,
+            "horizon_months": HOLDOUT_MONTHS, "unit": s.unit,
+            "mae": round(choice.mae, 3), "mae_std": None if choice.mae_std is None else round(choice.mae_std, 3),
+            "mape": round(choice.mape, 3), "mase": round(choice.mase, 3),
+            "baseline": BASELINE, "baseline_mae": round(choice.baseline_mae, 3),
+            "skill": round(choice.skill, 3), "n_eval": choice.n_eval,
+            "candidates_tried": len(choice.candidates),
+        })
         try:
-            fcs.append(forecast(s, resid))
+            fcs.append(forecast(s, choice))
         except Exception as exc:  # noqa: BLE001
             log.warning("monthly.forecast_failed", target=s.target, error=str(exc))
-        log.info("monthly.result", target=s.target, skill=metrics["skill"],
-                 mase=metrics["mase"], folds=metrics["folds"])
+        log.info("monthly.result", target=s.target, model=choice.model, skill=round(choice.skill, 3),
+                 mase=round(choice.mase, 3), folds=choice.folds)
     forecasts = pd.concat(fcs, ignore_index=True) if fcs else pd.DataFrame(
         columns=["target", "period", "yhat", "yhat_lower", "yhat_upper", "model", "unit"])
-    metrics_df = pd.DataFrame(mets)
-    metrics_df["evaluated_at"] = pd.Timestamp.utcnow().tz_localize(None)
-    return forecasts, metrics_df
+    metrics = pd.DataFrame(mets)
+    metrics["evaluated_at"] = pd.Timestamp.utcnow().tz_localize(None)
+    return forecasts, metrics
 
 
 # --------------------------------------------------------------------------- #

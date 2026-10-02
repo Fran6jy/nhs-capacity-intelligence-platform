@@ -9,6 +9,7 @@ pyarrow==15.0.0
 duckdb==0.10.3
 pandera==0.33.1          # data contracts at the silver -> gold boundary
 openpyxl==3.1.5          # NHS England RTT overview time series (.xlsx)
+statsmodels==0.15.0      # Holt-Winters + Theta candidates for the monthly forecaster
 
 # ML / forecasting
 prophet>=1.1.6           # 1.1.5 has the 'Prophet has no attribute stan_backend' regression

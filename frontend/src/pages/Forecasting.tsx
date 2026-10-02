@@ -42,9 +42,10 @@ function SkillBadge({ m }: { m: MonthlyMetric | undefined }) {
              : "text-risk-red ring-risk-red/40 bg-risk-red/10";
   return (
     <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1", tone)}
-          title={`${m.folds} rolling-origin folds · MAE ${m.mae} vs seasonal naive ${m.baseline_mae} · MASE ${m.mase}`}>
+          title={`Chosen from ${m.candidates_tried} candidates on ${m.folds} rolling-origin folds · MAE ${m.mae} vs seasonal naive ${m.baseline_mae} · MASE ${m.mase}`}>
       <ShieldCheck className="h-3.5 w-3.5" />
-      {pct > 0 ? "+" : ""}{pct}% skill vs same month last year
+      <span className="font-normal opacity-90">{m.model.replace(/_/g, " ")}</span>
+      · {pct > 0 ? "+" : ""}{pct}% skill vs same month last year
       {m.mase != null && <span className="font-normal opacity-80">· MASE {m.mase}</span>}
     </span>
   );
@@ -126,10 +127,11 @@ function RealForecastPanel() {
         </ComposedChart>
       </ResponsiveContainer>
       <p className="mt-2 text-xs text-slate-500">
-        Grey is NHS England's published monthly figure; green is a 12-month Prophet forecast fitted
-        to it, with an 80% band sized from the model's own back-test errors rather than a fixed
-        multiplier. The badge is skill on rolling-origin back-tests against "same month last year";
-        a forecast that cannot beat that baseline has no business issuing an outlook.
+        Grey is NHS England's published monthly figure; green is a 12-month forecast from whichever
+        candidate model won the rolling-origin back-test for this series (named in the badge), with an
+        80% band sized from that model's own held-out errors rather than a fixed multiplier. Skill is
+        measured against "same month last year"; if nothing beats it, the naive is the forecast and
+        the badge says so.
       </p>
     </>
   );
