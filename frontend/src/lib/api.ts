@@ -192,8 +192,24 @@ export const useOpsExplain = () =>
   useMutation({ mutationFn: () => get<OpsExplain>("/api/ops/explain") });
 
 export interface DataSource { name: string; category: string; kind: "real" | "modelled"; detail: string; }
-export interface ModelMetric { target: string; model: string; accuracy: number; mae: number; mape: number; n_eval: number; holdout_days: number; }
-export interface ForecastActual { target: string; date: string; actual: number; predicted: number; }
+/** One row per forecaster from the rolling-origin back-test (src/models/validation.py). */
+export interface ModelMetric {
+  target: string;
+  model: string;
+  folds: number;
+  horizon_days: number;
+  mae: number;
+  mae_std: number | null;
+  mape: number | null;
+  mase: number | null;
+  /** The trivial forecast the model is measured against. */
+  baseline: "seasonal_naive" | "last_value" | "persistence";
+  baseline_mae: number;
+  /** Fraction of baseline error removed; <= 0 means no better than guessing. */
+  skill: number;
+  n_eval: number;
+}
+export interface ForecastActual { target: string; date: string; actual: number; predicted: number; baseline: number; }
 export const useValidationSources = () =>
   useQuery({ queryKey: ["val-sources"], queryFn: () => get<DataSource[]>("/api/validation/sources") });
 export const useValidationMetrics = () =>

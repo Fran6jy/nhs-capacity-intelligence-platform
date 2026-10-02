@@ -448,7 +448,13 @@ def nhs_ae(limit: int = Query(20, ge=1, le=100)) -> dict:
 def validation_metrics() -> dict:
     if not db.table_exists("model_metrics"):
         return {"available": False, "metrics": []}
-    df = db.read_sql("SELECT target, model, accuracy, mae, mape, n_eval, holdout_days FROM model_metrics")
+    df = db.read_sql(
+        """
+        SELECT target, model, folds, horizon_days, mae, mae_std, mape, mase,
+               baseline, baseline_mae, skill, n_eval
+        FROM model_metrics ORDER BY target
+        """
+    )
     return {"available": True, "metrics": _records(df)}
 
 
@@ -456,7 +462,9 @@ def validation_metrics() -> dict:
 def validation_forecast_actual() -> dict:
     if not db.table_exists("model_forecast_actual"):
         return {"available": False, "series": []}
-    df = db.read_sql("SELECT target, date, actual, predicted FROM model_forecast_actual ORDER BY date")
+    df = db.read_sql(
+        "SELECT target, date, actual, predicted, baseline FROM model_forecast_actual ORDER BY target, date"
+    )
     return {"available": True, "series": _records(df)}
 
 

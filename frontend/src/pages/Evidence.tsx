@@ -22,11 +22,22 @@ import {
 import { GlassCard, SectionTitle, Skeleton } from "../components/ui";
 import { chartTooltip } from "../components/chart";
 
-function accentFor(a: number) {
-  if (a >= 85) return { ring: "ring-risk-green/40", text: "text-risk-green", bar: "#22c55e" };
-  if (a >= 70) return { ring: "ring-risk-amber/40", text: "text-risk-amber", bar: "#f59e0b" };
+/**
+ * Colour by skill over the trivial baseline, not by a raw accuracy grade.
+ * Skill is the fraction of baseline error the model removes: 0.3 means it
+ * cuts a third of the error of "predict last week"; <= 0 means it adds none.
+ */
+function accentForSkill(skill: number) {
+  if (skill >= 0.3) return { ring: "ring-risk-green/40", text: "text-risk-green", bar: "#22c55e" };
+  if (skill > 0) return { ring: "ring-risk-amber/40", text: "text-risk-amber", bar: "#f59e0b" };
   return { ring: "ring-risk-red/40", text: "text-risk-red", bar: "#ef4444" };
 }
+
+const BASELINE_LABEL: Record<string, string> = {
+  seasonal_naive: "same day last week",
+  last_value: "last observed value",
+  persistence: "today's value",
+};
 
 const MONTH_LABEL = (period: string) => {
   const [y, m] = period.split("-").map(Number);
@@ -254,17 +265,25 @@ export default function Evidence() {
       <GlassCard className="mt-6" delay={0.1}>
         <div className="mb-4 flex items-center gap-2">
           <Target className="h-4 w-4 text-nhs-cyan" />
-          <h3 className="font-semibold text-white">Model accuracy — back-tested</h3>
-          <span className="text-xs text-slate-500">30-day hold-out · accuracy = 100 − MAPE</span>
+          <h3 className="font-semibold text-white">Model skill — back-tested against a baseline</h3>
+          <span className="text-xs text-slate-500">rolling-origin · 30-day horizon</span>
         </div>
+        <p className="mb-4 text-xs text-slate-400">
+          Each forecaster is re-fitted at several past dates and scored on the 30 days it had
+          not seen, against the best trivial forecast available. <span className="text-slate-300">Skill</span> is
+          the share of that baseline's error the model removes; zero means the model adds
+          nothing over guessing. <span className="text-slate-300">MASE</span> is error relative to
+          "same day last week" (1.0 = no better).
+        </p>
         {metrics.isLoading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-28" />)}</div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-32" />)}</div>
         ) : !metrics.data?.available || metrics.data.metrics.length === 0 ? (
           <p className="text-sm text-slate-400">No validation yet — run the pipeline to back-test the models.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {metrics.data.metrics.map((m, i) => {
-              const c = accentFor(m.accuracy);
+              const c = accentForSkill(m.skill);
+              const pct = Math.round(m.skill * 100);
               return (
                 <motion.div key={m.target} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
@@ -272,12 +291,20 @@ export default function Evidence() {
                   <div className="flex items-center gap-1.5 text-sm text-slate-300">
                     <FlaskConical className="h-3.5 w-3.5" /> {m.target}
                   </div>
-                  <div className={`mt-2 text-4xl font-bold ${c.text}`}>{m.accuracy}%</div>
+                  <div className={`mt-2 text-4xl font-bold tabular-nums ${c.text}`}>
+                    {pct > 0 ? "+" : ""}{pct}%
+                    <span className="ml-1.5 text-sm font-medium text-slate-400">skill</span>
+                  </div>
                   <div className="mt-1 text-xs text-slate-400">
-                    {m.model} · MAPE {m.mape}% · MAE {m.mae} · n={m.n_eval.toLocaleString()}
+                    vs {BASELINE_LABEL[m.baseline] ?? m.baseline} · {m.folds} fold{m.folds === 1 ? "" : "s"}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {m.model} · MAE {m.mae}{m.mae_std != null ? ` ±${m.mae_std}` : ""} vs {m.baseline_mae}
+                    {m.mase != null ? ` · MASE ${m.mase}` : ""} · n={m.n_eval.toLocaleString()}
                   </div>
                   <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/5">
-                    <div className="h-full rounded-full" style={{ width: `${m.accuracy}%`, background: c.bar }} />
+                    <div className="h-full rounded-full"
+                         style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: c.bar }} />
                   </div>
                 </motion.div>
               );
@@ -298,20 +325,26 @@ export default function Evidence() {
           <p className="text-sm text-slate-400">No back-test series available yet.</p>
         ) : (
           <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={fa.data.series} margin={{ left: -12, right: 8, top: 8 }}>
+            <LineChart
+              data={fa.data.series.filter((s) => s.target === "Capacity pressure")}
+              margin={{ left: -12, right: 8, top: 8 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis dataKey="date" tick={{ fill: "#94a3b8", fontSize: 11 }} minTickGap={40}
                      tickFormatter={(v) => String(v).slice(5, 10)} />
               <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} domain={["auto", "auto"]} />
               <Tooltip content={chartTooltip} />
               <Line type="monotone" dataKey="actual" name="Actual" stroke="#94a3b8" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="predicted" name="Predicted" stroke="#00C2D1" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="baseline" name="Baseline (naive)" stroke="#f59e0b"
+                    strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+              <Line type="monotone" dataKey="predicted" name="Model" stroke="#00C2D1" strokeWidth={2.5} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         )}
         <p className="mt-2 text-xs text-slate-500">
-          The model is trained on data up to the hold-out window, then predicts it blind — the
-          predicted line never saw these actuals.
+          Most recent back-test fold. The model is fitted on data up to the start of the window
+          and predicts it blind. The dashed line is the trivial baseline it is measured against —
+          if the model line is not closer to the actuals than the dashed one, it has no skill.
         </p>
       </GlassCard>
     </div>

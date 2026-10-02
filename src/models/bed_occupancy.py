@@ -46,6 +46,8 @@ from src.utils.logging import get_logger
 log = get_logger("models.bed_occupancy")
 
 MIN_TRAINING_DAYS = 60
+#: Out-of-fold rows needed before a residual corrector is fitted at all.
+MIN_OOF_ROWS = 60
 
 
 class BedOccupancyForecaster:
@@ -121,13 +123,30 @@ class BedOccupancyForecaster:
 
         oof = pd.concat(parts, ignore_index=True).merge(feats, on="ds").dropna(subset=FEATURE_COLUMNS)
 
-        # Split conformal: calibrate intervals on the most recent fold using a
-        # corrector that never saw it, then refit the corrector on everything.
+        # A residual corrector fitted on a few dozen rows learns noise and then
+        # applies it confidently. Without enough out-of-fold history, Prophet
+        # alone is the honest model.
+        if len(oof) < MIN_OOF_ROWS:
+            log.info("bed_occupancy.prophet_only", oof_rows=len(oof), needed=MIN_OOF_ROWS)
+            self._xgb = None
+            return
+
+        # Split conformal on the most recent fold, using a corrector that never
+        # saw it. The same fold decides whether the corrector earns its place:
+        # if Prophet alone has lower error there, the corrector is dropped.
         cal_start = parts[-1]["ds"].min()
         fit_part, cal_part = oof[oof["ds"] < cal_start], oof[oof["ds"] >= cal_start]
         if len(fit_part) >= 20 and len(cal_part) >= 5:
             cal_model = self._new_xgb().fit(fit_part[FEATURE_COLUMNS], fit_part["residual"])
             hybrid = cal_part["yhat"] + cal_model.predict(cal_part[FEATURE_COLUMNS])
+            mae_hybrid = float(np.mean(np.abs(cal_part["y"] - hybrid)))
+            mae_prophet = float(np.mean(np.abs(cal_part["residual"])))
+            if mae_hybrid > mae_prophet:
+                log.info("bed_occupancy.corrector_rejected", mae_hybrid=round(mae_hybrid, 3),
+                         mae_prophet=round(mae_prophet, 3))
+                self._bias, lo, hi = bias_and_offsets(cal_part["residual"], self.interval_level)
+                self._offsets, self._xgb = (lo, hi), None
+                return
             self._bias, lo, hi = bias_and_offsets(cal_part["y"] - hybrid, self.interval_level)
             self._offsets = (lo, hi)
 
