@@ -43,7 +43,8 @@ RTT_INDEX = f"{WORK_AREA}/rtt-waiting-times/"
 AE_YEAR_SLUG = re.compile(r"ae-attendances-and-emergency-admissions-(\d{4}-\d{2})/?", re.I)
 RTT_YEAR_SLUG = re.compile(r"rtt-data-(\d{4}-\d{2})/?", re.I)
 
-AE_CSV_LINK = re.compile(r'href="([^"]*?-CSV-[^"]*?\.csv)"', re.I)
+AE_CSV_LINK = re.compile(r'href="([^"]+?\.csv)"', re.I)
+RTT_TIMESERIES_LINK = re.compile(r'href="([^"]*?RTT-Overview-Timeseries[^"]*?\.xlsx?)"', re.I)
 RTT_ZIP_LINK = re.compile(r'href="([^"]*?Full-CSV-data-file[^"]*?\.zip)"', re.I)
 
 TIMEOUT = 120
@@ -108,12 +109,29 @@ def _period_from_name(name: str) -> str | None:
     if full:
         return f"{int(full.group(2)):04d}-{MONTHS[full.group(1).upper()]:02d}"
 
-    short = re.search(r"\b([A-Z][a-z]{2})(\d{2})\b", name)
+    # "Jul26", "Nov-25", "Nov_25": three-letter month, optional separator,
+    # two-digit year. The lookahead stops "Jul26" matching inside "Jul2026".
+    short = re.search(r"\b([A-Z][a-z]{2})[-_ ]?(\d{2})(?!\d)", name)
     if short:
         for label, num in MONTHS.items():
             if label.startswith(short.group(1).upper()):
                 return f"20{short.group(2)}-{num:02d}"
     return None
+
+
+def _year_pages(index_url: str, slug: re.Pattern[str]) -> list[str]:
+    """Every financial-year collection page linked from an index, newest first.
+
+    Each year page carries that year's twelve monthly files, so walking back
+    through them is how a multi-year history is assembled.
+    """
+    html = _get(index_url).text
+    years = {m.group(1): m.group(0) for m in slug.finditer(html)}
+    out = []
+    for year in sorted(years, reverse=True):
+        href = years[year]
+        out.append(href if href.startswith("http") else f"{index_url.rstrip('/')}/{href.lstrip('/')}")
+    return out
 
 
 def _latest_year_page(index_url: str, slug: re.Pattern[str]) -> str | None:
@@ -139,19 +157,38 @@ def _latest_year_page(index_url: str, slug: re.Pattern[str]) -> str | None:
     return url
 
 
-def _discover(index_url: str, slug: re.Pattern[str], link: re.Pattern[str]) -> list[Release]:
-    """Return published releases, newest first."""
-    page = _latest_year_page(index_url, slug)
-    if not page:
-        return []
+def _releases_on(page_url: str, link: re.Pattern[str]) -> dict[str, Release]:
+    """Monthly releases on one collection page, keyed by period.
 
-    html = _get(page).text
+    NHS England re-publishes months as "revised" files; when a period appears
+    twice the revised one wins, regardless of page order.
+    """
+    html = _get(page_url).text
     seen: dict[str, Release] = {}
     for url in link.findall(html):
         period = _period_from_name(url.rsplit("/", 1)[-1])
-        if period and period not in seen:
+        if not period:
+            continue
+        revised = "revised" in url.lower()
+        if period not in seen or (revised and "revised" not in seen[period].url.lower()):
             seen[period] = Release(url=url, period=period)
-    return [seen[p] for p in sorted(seen, reverse=True)]
+    return seen
+
+
+def _discover(
+    index_url: str, slug: re.Pattern[str], link: re.Pattern[str], months: int = 3
+) -> list[Release]:
+    """Return up to ``months`` published releases, newest first.
+
+    Walks back through financial-year pages only as far as needed, so a
+    three-month refresh costs one page and a three-year history costs four.
+    """
+    seen: dict[str, Release] = {}
+    for page in _year_pages(index_url, slug):
+        seen.update({p: r for p, r in _releases_on(page, link).items() if p not in seen})
+        if len(seen) >= months:
+            break
+    return [seen[p] for p in sorted(seen, reverse=True)][:months]
 
 
 # --------------------------------------------------------------------------- #
@@ -209,7 +246,7 @@ def _tidy_ae(raw: pd.DataFrame, period: str) -> pd.DataFrame:
 def fetch_ae_monthly(months: int = 3) -> pd.DataFrame:
     """Provider-level A&E activity for the most recent published months."""
     try:
-        releases = _discover(AE_INDEX, AE_YEAR_SLUG, AE_CSV_LINK)[:months]
+        releases = _discover(AE_INDEX, AE_YEAR_SLUG, AE_CSV_LINK, months)
     except NhsEnglandUnavailable as exc:
         log.warning("nhs_england.blocked", dataset="ae", error=str(exc))
         return pd.DataFrame()
@@ -310,7 +347,7 @@ def fetch_rtt_monthly(months: int = 1) -> pd.DataFrame:
     headline figures move slowly enough that one month is the useful unit.
     """
     try:
-        releases = _discover(RTT_INDEX, RTT_YEAR_SLUG, RTT_ZIP_LINK)[:months]
+        releases = _discover(RTT_INDEX, RTT_YEAR_SLUG, RTT_ZIP_LINK, months)
     except NhsEnglandUnavailable as exc:
         log.warning("nhs_england.blocked", dataset="rtt", error=str(exc))
         return pd.DataFrame()
@@ -333,3 +370,81 @@ def fetch_rtt_monthly(months: int = 1) -> pd.DataFrame:
             log.warning("nhs_england.rtt_failed", period=rel.period, error=str(exc))
 
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+# --------------------------------------------------------------------------- #
+# RTT national time series (April 2007 onwards)
+# --------------------------------------------------------------------------- #
+#: Column positions in the "Full Time Series" sheet of the overview workbook.
+#: The header is two rows (block name, measure), so positions are more robust
+#: than names; a check on the block label guards against layout drift.
+_TS_COLS = {
+    "month": 2,
+    "median_wait_weeks": 3,
+    "within_18_weeks_pct": 8,      # with estimates for missing trusts
+    "over_18_weeks": 10,           # with estimates
+    "over_52_weeks": 12,           # with estimates
+    "total_waiting_millions": 22,  # with estimates; a count despite the label
+}
+
+
+def _tidy_rtt_timeseries(raw: pd.DataFrame) -> pd.DataFrame:
+    """Tidy the overview workbook (read with ``header=None``) into one row per month."""
+    header_row = next(
+        (i for i in range(min(30, len(raw))) if str(raw.iat[i, 2]).strip() == "Month"), None
+    )
+    if header_row is None:
+        raise ValueError("RTT time series: 'Month' header not found in the first 30 rows")
+    block = str(raw.iat[header_row, 3])
+    if "Incomplete" not in block:
+        raise ValueError(f"RTT time series layout changed: expected incomplete block, got {block!r}")
+
+    body = raw.iloc[header_row + 2:]
+    month = pd.to_datetime(body.iloc[:, _TS_COLS["month"]], errors="coerce")
+    body = body[month.notna()]
+    month = month[month.notna()]
+
+    def num(col: str) -> pd.Series:
+        return pd.to_numeric(body.iloc[:, _TS_COLS[col]], errors="coerce")
+
+    out = pd.DataFrame({
+        "period": month.dt.strftime("%Y-%m").values,
+        # Labelled "(mil)" in the workbook, but the cells hold full counts
+        # (7,328,252, not 7.33). Multiplying by a million gave 7.3 trillion.
+        "total_waiting": num("total_waiting_millions").round().values,
+        "within_18_weeks_pct": (num("within_18_weeks_pct") * 100).round(1).values,
+        "over_18_weeks": num("over_18_weeks").values,
+        "over_52_weeks": num("over_52_weeks").values,
+        "median_wait_weeks": num("median_wait_weeks").round(1).values,
+    })
+    out = out.dropna(subset=["total_waiting"]).reset_index(drop=True)
+    for c in ("total_waiting", "over_18_weeks", "over_52_weeks"):
+        out[c] = out[c].astype("Int64")
+    return out
+
+
+def fetch_rtt_timeseries() -> pd.DataFrame:
+    """National RTT waiting-list history, one row per month, from April 2007.
+
+    One small workbook rather than two hundred 82MB extracts. This is the
+    series the national forecaster and the monthly back-test run on.
+    """
+    try:
+        page = _latest_year_page(RTT_INDEX, RTT_YEAR_SLUG)
+        if not page:
+            return pd.DataFrame()
+        links = RTT_TIMESERIES_LINK.findall(_get(page).text)
+        if not links:
+            log.warning("nhs_england.rtt_timeseries_not_found", page=page)
+            return pd.DataFrame()
+        raw = pd.read_excel(io.BytesIO(_get(links[0]).content), sheet_name=0, header=None)
+        out = _tidy_rtt_timeseries(raw)
+        log.info("nhs_england.rtt_timeseries_loaded", months=len(out),
+                 first=out["period"].iat[0], last=out["period"].iat[-1])
+        return out
+    except NhsEnglandUnavailable as exc:
+        log.warning("nhs_england.blocked", dataset="rtt_timeseries", error=str(exc))
+        return pd.DataFrame()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("nhs_england.rtt_timeseries_failed", error=str(exc))
+        return pd.DataFrame()

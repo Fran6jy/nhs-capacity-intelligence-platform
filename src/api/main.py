@@ -518,6 +518,84 @@ def nhs_ae(limit: int = Query(20, ge=1, le=100)) -> dict:
     }
 
 
+@app.get("/api/nhs/rtt/history", tags=["real-data"])
+def nhs_rtt_history(months: int = Query(120, ge=12, le=300)) -> dict:
+    """National RTT waiting-list series from NHS England's overview workbook."""
+    if not db.table_exists("nhs_rtt_timeseries"):
+        return {"available": False, "series": []}
+    df = db.read_sql(
+        """
+        SELECT period, total_waiting, within_18_weeks_pct, over_18_weeks,
+               over_52_weeks, median_wait_weeks
+        FROM nhs_rtt_timeseries ORDER BY period DESC LIMIT :n
+        """,
+        {"n": months},
+    ).sort_values("period")
+    return {"available": True, "series": _records(df)}
+
+
+@app.get("/api/nhs/forecast", tags=["real-data"])
+def nhs_forecast(target: str | None = Query(None)) -> dict:
+    """Twelve-month national forecasts on the real published series."""
+    if not db.table_exists("nhs_monthly_forecast"):
+        return {"available": False, "targets": [], "series": []}
+    sql = "SELECT target, period, yhat, yhat_lower, yhat_upper, model, unit FROM nhs_monthly_forecast"
+    params: dict = {}
+    if target:
+        sql += " WHERE target = :t"
+        params["t"] = target
+    df = db.read_sql(sql + " ORDER BY target, period", params)
+    return {
+        "available": True,
+        "targets": sorted(df["target"].unique().tolist()),
+        "series": _records(df),
+    }
+
+
+@app.get("/api/nhs/forecast-metrics", tags=["real-data"])
+def nhs_forecast_metrics() -> dict:
+    """Rolling-origin back-test of the monthly forecasts against the seasonal naive."""
+    if not db.table_exists("nhs_monthly_metrics"):
+        return {"available": False, "metrics": []}
+    df = db.read_sql(
+        """
+        SELECT target, model, folds, horizon_months, unit, mae, mae_std, mape, mase,
+               baseline, baseline_mae, skill, n_eval
+        FROM nhs_monthly_metrics WHERE folds > 0 ORDER BY target
+        """
+    )
+    return {"available": True, "metrics": _records(df)}
+
+
+@app.get("/api/nhs/provider-risk", tags=["real-data"])
+def nhs_provider_risk(limit: int = Query(25, ge=1, le=600), region: str | None = Query(None)) -> dict:
+    """Peer-relative risk across the real NHS providers, worst first."""
+    if not db.table_exists("nhs_provider_risk"):
+        return {"available": False, "summary": {}, "providers": []}
+    summary = db.read_sql(
+        """
+        SELECT classification, COUNT(*) AS n FROM nhs_provider_risk GROUP BY classification
+        """
+    )
+    sql = """
+        SELECT org_code, org_name, region_name, coverage, score, classification, trigger,
+               within_18_weeks_pct, four_hour_performance_pct, total_waiting, attendances,
+               rtt_period, ae_period, peer_count, components_json
+        FROM nhs_provider_risk
+    """
+    params: dict = {"limit": limit}
+    if region:
+        sql += " WHERE region_name = :region"
+        params["region"] = region
+    df = db.read_sql(sql + " ORDER BY score DESC LIMIT :limit", params)
+    return {
+        "available": True,
+        "summary": {r["classification"]: int(r["n"]) for r in summary.to_dict("records")},
+        "peer_count": int(df["peer_count"].iat[0]) if len(df) else 0,
+        "providers": _records(df),
+    }
+
+
 @app.get("/api/validation/metrics", tags=["validation"])
 def validation_metrics() -> dict:
     if not db.table_exists("model_metrics"):

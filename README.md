@@ -213,15 +213,22 @@ Real, ingested from published sources — no credentials required:
 
 | Source | What it gives |
 |---|---|
-| **NHS England RTT** | Monthly incomplete-pathway waiting list by provider and treatment function (~7.2M pathways, 533 providers, 23 specialties) |
-| **NHS England A&E** | Monthly attendances, four-hour breaches, 12-hour DTA waits and emergency admissions by provider (~2.3M attendances, 182 providers) |
+| **NHS England RTT** | Monthly incomplete-pathway waiting list by provider and treatment function (~7.2M pathways, 533 providers, 23 specialties), plus the national series back to **April 2007** |
+| **NHS England A&E** | **36 months** of monthly attendances, four-hour breaches, 12-hour DTA waits and emergency admissions by provider (~2.3M attendances/month, 182 providers) |
 | **NHS ODS** | Live register of active NHS trusts |
 | **Open-Meteo** | Daily mean temperature per NHS region |
 
+**The forecasting and risk layers run on the real data.** Twelve-month national
+forecasts are fitted to the published monthly series and back-tested on rolling
+origins against "same month last year" (skill and MASE are shown next to every
+forecast). Provider risk is scored peer-relatively across all 533 published
+providers, not a synthetic sixteen.
+
 Modelled: the daily activity fact table, the A&E digital twin, workforce and
 demographics. NHS England publishes monthly, so anything at daily or minute
-grain is necessarily modelled — the Evidence & Validation page states which is
-which, per source, rather than blurring the line.
+grain is necessarily modelled — every page labels real and modelled figures
+per source rather than blurring the line, and the daily models are back-tested
+against trivial baselines on the Evidence page.
 
 > **Note:** Every external source has a synthetic fallback, so the full pipeline runs offline with no
 > NHS/ONS/Met Office credentials. The LLM layer defaults to **Claude** (`LLM_PROVIDER=anthropic`); with no

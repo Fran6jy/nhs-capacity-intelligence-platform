@@ -14,7 +14,7 @@ in [DEPLOYMENT.md](DEPLOYMENT.md).
 | **Frontend** (React/Vite) | Vercel (`frontend/vercel.json`) | — calls the API | only if Git-connected — **check**, see below |
 | **Database** | Supabase, project `dtxavwlqmefuhyphjikk`, eu-west-1 | — | — |
 | **Scheduled refresh** | GitHub Actions `refresh.yml` | `postgres` (owner) | every 12h, or manually |
-| **NHS real-data ingestion** | **your laptop** — see §3 | `postgres` (owner) | monthly, manually |
+| **NHS real-data ingestion + real-data models** | **your laptop** — see §3 | `postgres` (owner) | monthly, manually |
 
 The API is on Render's free plan and sleeps when idle. A first request after
 that takes **~150 seconds**. That is a cold start, not an outage — don't
@@ -94,23 +94,22 @@ home or office connection.
 python scripts/ingest_nhs_real.py
 ```
 
-Takes a couple of minutes — the RTT extract is ~82MB compressed, ~330k rows.
-Expect output like:
+Takes several minutes: 36 monthly A&E files, the ~82MB RTT extract, the
+national time-series workbook, then six Prophet back-tests. Expect output like:
 
 ```
-  published 547 rows to nhs_ae_monthly (3 month(s))
-  published 3,524 rows to nhs_rtt_monthly (1 month(s))
+  nhs_ae_monthly         published   6,771 rows
+  nhs_rtt_monthly        published   3,524 rows
+  nhs_rtt_timeseries     published     227 rows
+  nhs_monthly_forecast   published      72 rows
+  nhs_monthly_metrics    published       6 rows
+  nhs_provider_risk      published     ~540 rows
+Re-applying the database security posture ...
 ```
 
-**Then re-apply the security posture.** The ingestion recreates those two
-tables, and a recreated table loses its RLS setting and policies:
-
-```powershell
-python -c "import importlib.util; s=importlib.util.spec_from_file_location('p','scripts/publish_to_postgres.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.harden()"
-```
-
-You can skip that if you don't mind waiting — the next scheduled refresh runs
-`harden()` anyway, within 12 hours.
+The script re-applies row-level security itself at the end (the tables are
+recreated, and a recreated table loses its policies), so there is no manual
+follow-up step.
 
 **Then sanity-check the figures** against the NHS England press release. They
 should match exactly; if they don't, see §6.

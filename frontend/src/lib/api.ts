@@ -221,6 +221,88 @@ export const useNhsRtt = () =>
 export const useNhsAe = () =>
   useQuery({ queryKey: ["nhs-ae"], queryFn: () => get<NhsAe>("/api/nhs/ae?limit=7") });
 
+// ---- real-data modelling: national monthly forecasts + provider risk ----
+export interface RttHistoryPoint {
+  period: string;
+  total_waiting: number;
+  within_18_weeks_pct: number;
+  over_18_weeks: number;
+  over_52_weeks: number;
+  median_wait_weeks: number;
+}
+export interface MonthlyForecastPoint {
+  target: string;
+  period: string;
+  yhat: number;
+  yhat_lower: number;
+  yhat_upper: number;
+  model: string;
+  unit: string;
+}
+/** Back-test of a monthly forecast against "same month last year". */
+export interface MonthlyMetric {
+  target: string;
+  model: string;
+  folds: number;
+  horizon_months: number;
+  unit: string;
+  mae: number;
+  mae_std: number | null;
+  mape: number | null;
+  mase: number | null;
+  baseline: string;
+  baseline_mae: number;
+  skill: number;
+  n_eval: number;
+}
+export interface ProviderRisk {
+  org_code: string;
+  org_name: string | null;
+  region_name: string | null;
+  coverage: "rtt+ae" | "rtt" | "ae";
+  score: number;
+  classification: "Green" | "Amber" | "Red";
+  trigger: "absolute" | "peer-relative";
+  within_18_weeks_pct: number | null;
+  four_hour_performance_pct: number | null;
+  total_waiting: number | null;
+  attendances: number | null;
+  rtt_period: string | null;
+  ae_period: string | null;
+  peer_count: number;
+  components_json: string;
+}
+export interface ProviderRiskResponse {
+  available: boolean;
+  summary: Partial<Record<"Green" | "Amber" | "Red", number>>;
+  peer_count: number;
+  providers: ProviderRisk[];
+}
+
+export const useRttHistory = (months = 120) =>
+  useQuery({
+    queryKey: ["nhs-rtt-history", months],
+    queryFn: () => get<{ available: boolean; series: RttHistoryPoint[] }>(`/api/nhs/rtt/history?months=${months}`),
+  });
+export const useNhsForecast = () =>
+  useQuery({
+    queryKey: ["nhs-forecast"],
+    queryFn: () => get<{ available: boolean; targets: string[]; series: MonthlyForecastPoint[] }>("/api/nhs/forecast"),
+  });
+export const useNhsForecastMetrics = () =>
+  useQuery({
+    queryKey: ["nhs-forecast-metrics"],
+    queryFn: () => get<{ available: boolean; metrics: MonthlyMetric[] }>("/api/nhs/forecast-metrics"),
+  });
+export const useProviderRisk = (limit = 25, region?: string) =>
+  useQuery({
+    queryKey: ["nhs-provider-risk", limit, region ?? ""],
+    queryFn: () =>
+      get<ProviderRiskResponse>(
+        `/api/nhs/provider-risk?limit=${limit}${region ? `&region=${encodeURIComponent(region)}` : ""}`,
+      ),
+  });
+
 export const useAsk = () =>
   useMutation({
     mutationFn: async (question: string): Promise<AskResponse> => {
