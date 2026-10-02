@@ -39,13 +39,27 @@ from src.utils.logging import get_logger
 log = get_logger("risk_engine")
 
 
-# Weighting per component (sum to 1.0)
+# Weighting per component (sum to 1.0).
+#
+# These are judgement weights, not fitted ones. The rationale: bed occupancy
+# and waiting-list pressure are the two signals NHS England's own operational
+# framework escalates on, so they carry the most; vacancy rate is a leading
+# indicator of both, so it sits just below; the A&E surge index is the
+# noisiest of the four at daily grain, so it carries the least. They have NOT
+# been calibrated against any outcome (subsequent four-hour breaches, 12-hour
+# trolley waits, OPEL escalations). Treat the composite as a ranking device,
+# not a measured probability, until that calibration exists.
 WEIGHTS = {
     "bed_occupancy": 0.30,
     "waiting_list_growth": 0.30,
     "vacancy_rate": 0.25,
     "ae_surge": 0.15,
 }
+
+# A peer-relative z-score needs peers. With the synthetic roster that is 16
+# trusts, and one outlier moves everyone's score. Below this many, a warning
+# is logged so the limitation is visible in the run, not just in this comment.
+MIN_PEERS_FOR_ZSCORE = 30
 
 # We cap z-scores to keep the index robust to extreme outliers
 Z_CLIP = 3.0
@@ -178,6 +192,13 @@ def _latest_components(fact: pd.DataFrame) -> pd.DataFrame:
 
 def compute_risk(fact: pd.DataFrame) -> pd.DataFrame:
     components = _latest_components(fact)
+    if len(components) < MIN_PEERS_FOR_ZSCORE:
+        log.warning(
+            "risk_engine.thin_peer_set",
+            peers=len(components),
+            needed=MIN_PEERS_FOR_ZSCORE,
+            note="z-scores are peer-relative; with few peers one outlier shifts every score",
+        )
     components["bed_occupancy_z"] = _zscore(components["bed_occupancy"])
     # Waiting-list pressure blends trend (growth rate) and standing backlog
     # (absolute level) so a large-but-stable list still registers as risk, and
