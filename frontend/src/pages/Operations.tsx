@@ -12,12 +12,12 @@ function Kpi({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-          <p className="mt-2 text-3xl font-bold text-white">
+          <p className="numeral mt-3 text-3xl sm:text-4xl">
             <AnimatedNumber value={value} decimals={decimals} />
             <span className="ml-0.5 text-lg font-medium text-slate-400">{suffix}</span>
           </p>
         </div>
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-nhs-cyan/10 text-nhs-cyan ring-1 ring-nhs-cyan/20">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-400">
           <Icon className="h-5 w-5" aria-hidden />
         </div>
       </div>

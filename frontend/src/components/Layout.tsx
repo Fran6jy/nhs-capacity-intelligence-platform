@@ -44,10 +44,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </a>
 
       {/* Sidebar (desktop) */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-2 border-r border-white/10 bg-ink-800/60 p-5 backdrop-blur-xl lg:flex" aria-label="Primary">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-2 border-r border-white/10 bg-ink-900 p-5 lg:flex" aria-label="Primary">
         <div className="mb-6 flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-nhs-blue to-nhs-cyan shadow-glow">
-            <HeartPulse className="h-6 w-6 text-white" aria-hidden />
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-nhs-cyan">
+            <HeartPulse className="h-5 w-5 text-ink-900" aria-hidden />
           </div>
           <div>
             <div className="text-sm font-bold leading-tight text-white">NHS Capacity</div>
@@ -65,8 +65,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 clsx(
                   "group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all",
                   isActive
-                    ? "bg-white/[0.07] text-white shadow-glow"
-                    : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
+                    ? "text-white"
+                    : "text-slate-400 hover:text-white"
                 )
               }
             >
@@ -87,8 +87,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mt-auto rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[11px] text-slate-400">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" aria-hidden />
+          <div className="flex items-center gap-2 text-slate-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-risk-green" aria-hidden />
             Live · PostgreSQL
           </div>
           <p className="mt-1 leading-relaxed">Published NHS England data, refreshed monthly; modelled layers refreshed twice daily.</p>
@@ -97,13 +97,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/10 bg-ink-900/60 px-4 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/10 bg-ink-900 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex min-w-0 items-center gap-2 text-sm text-slate-400">
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-nhs-blue to-nhs-cyan lg:hidden">
-              <HeartPulse className="h-4 w-4 text-white" aria-hidden />
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-nhs-cyan lg:hidden">
+              <HeartPulse className="h-4 w-4 text-ink-900" aria-hidden />
             </div>
             <Activity className="hidden h-4 w-4 text-nhs-cyan lg:block" aria-hidden />
-            <span className="text-gradient truncate font-semibold">Capacity & Demand Intelligence</span>
+            <span className="truncate text-sm font-medium tracking-tight text-slate-200">Capacity & Demand Intelligence</span>
           </div>
           {/* The one thing every page needs the reader to know: which figures are whose. */}
           <div className="flex shrink-0 items-center gap-1.5" aria-label="How figures are labelled">
@@ -118,10 +118,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={loc.pathname}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.28 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
               className="mx-auto max-w-7xl"
             >
               {children}
@@ -131,7 +131,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Bottom tab bar (mobile / tablet) — the sidebar does not exist below lg. */}
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-white/10 bg-ink-900/90 px-1 pb-[max(env(safe-area-inset-bottom),4px)] pt-1 backdrop-blur-xl lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-white/10 bg-ink-900 px-1 pb-[max(env(safe-area-inset-bottom),4px)] pt-1 lg:hidden"
           aria-label="Pages"
         >
           {NAV.map((n) => (

@@ -117,7 +117,7 @@ function RealForecastPanel() {
         <ComposedChart data={rows} margin={{ left: 4, right: 8, top: 8 }}>
           <defs>
             <linearGradient id="realband" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.22} />
+              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.14} />
               <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.04} />
             </linearGradient>
           </defs>
@@ -194,7 +194,7 @@ export default function Forecasting() {
               className={clsx(
                 "rounded-xl px-4 py-2 text-sm font-medium transition-all ring-1",
                 target === t.id
-                  ? "bg-nhs-cyan/15 text-nhs-cyan ring-nhs-cyan/40 shadow-glow"
+                  ? "bg-nhs-cyan/15 text-nhs-cyan ring-nhs-cyan/40"
                   : "bg-white/[0.03] text-slate-400 ring-white/10 hover:text-white"
               )}
             >
@@ -236,7 +236,7 @@ export default function Forecasting() {
             <ComposedChart data={data} margin={{ left: -12, right: 8, top: 8 }}>
               <defs>
                 <linearGradient id="bandgrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.22} />
+                  <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.14} />
                   <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.04} />
                 </linearGradient>
               </defs>

@@ -63,7 +63,7 @@ export function chartTooltip(props: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
   const rows = payload.filter((p) => p.value != null && !Array.isArray(p.value));
   return (
-    <div className="rounded-xl border border-white/10 bg-ink-800/95 px-3 py-2 text-xs shadow-card backdrop-blur-xl">
+    <div className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-xs shadow-card">
       {label != null && <div className="mb-1.5 font-medium text-slate-400">{String(label)}</div>}
       {rows.map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4 py-0.5">
@@ -131,7 +131,7 @@ export function ChartFrame<T extends object>({
         {table ? (
           <div className="max-h-[360px] overflow-auto rounded-xl border border-white/10">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-ink-800/95 text-xs uppercase tracking-wide text-slate-400 backdrop-blur">
+              <thead className="sticky top-0 bg-ink-700 text-xs uppercase tracking-wide text-slate-400">
                 <tr>
                   {columns.map((c) => (
                     <th key={c.key} className={clsx("px-3 py-2 font-medium", c.align === "right" ? "text-right" : "text-left")}>{c.label}</th>
@@ -174,7 +174,7 @@ export function SmallMultiple({
         <AreaChart data={data} margin={{ left: 0, right: 8, top: 6, bottom: 0 }}>
           <defs>
             <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.12} />
               <stop offset="100%" stopColor={color} stopOpacity={0.02} />
             </linearGradient>
           </defs>

@@ -51,9 +51,9 @@ function RealStat({
   label, value, unit, sub, emphasis,
 }: { label: string; value: string; unit?: string; sub: string; emphasis?: boolean }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 ring-1 ring-risk-green/20">
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={`mt-1.5 font-bold ${emphasis ? "text-3xl text-white" : "text-2xl text-slate-100"}`}>
+      <div className={`numeral mt-3 ${emphasis ? "text-4xl sm:text-5xl" : "text-3xl sm:text-4xl"}`}>
         {value}
         {unit && <span className="ml-1 text-base font-medium text-slate-400">{unit}</span>}
       </div>
@@ -285,7 +285,7 @@ export default function Evidence() {
               return (
                 <motion.div key={m.target} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
-                  className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ring-1 ${c.ring}`}>
+                  className={`rounded-xl border border-white/10 bg-white/[0.03] p-4 ring-1 ${c.ring}`}>
                   <div className="flex items-center gap-1.5 text-sm text-slate-300">
                     <FlaskConical className="h-3.5 w-3.5" /> {m.target}
                   </div>

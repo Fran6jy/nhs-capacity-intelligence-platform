@@ -25,15 +25,7 @@ export default function OpsPanel() {
   return (
     <GlassCard delay={0.24}>
       <SectionHeading
-        title={
-          <span className="inline-flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5" aria-hidden>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-nhs-cyan opacity-60" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-nhs-cyan" />
-            </span>
-            A&amp;E operations — digital twin
-          </span>
-        }
+        title="A&E operations — digital twin"
         kind="live"
       >
         Minute-level department state for every trust, simulated with real operational dynamics
@@ -67,7 +59,7 @@ export default function OpsPanel() {
                 <AreaChart data={data.minutes} margin={{ left: 0, right: 8, top: 6, bottom: 0 }}>
                   <defs>
                     <linearGradient id="ops-occ" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.18} />
+                      <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.12} />
                       <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
@@ -98,7 +90,7 @@ export default function OpsPanel() {
           </div>
 
           {/* AI pressure copilot */}
-          <div className="mt-4 rounded-xl border border-nhs-cyan/20 bg-nhs-cyan/[0.05] p-4">
+          <div className="mt-4 rounded-xl border border-white/10 bg-ink-700/50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-white">
                 <Brain className="h-4 w-4 text-nhs-cyan" aria-hidden /> AI pressure copilot
@@ -107,7 +99,7 @@ export default function OpsPanel() {
                 type="button"
                 onClick={() => explain.mutate()}
                 disabled={explain.isPending}
-                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-nhs-blue to-nhs-cyan px-3 py-1.5 text-xs font-medium text-white shadow-glow transition disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-nhs-cyan px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" aria-hidden />
                 {explain.isPending ? "Analysing…" : "Explain current pressure"}

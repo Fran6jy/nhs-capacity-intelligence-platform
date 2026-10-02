@@ -164,10 +164,9 @@ export default function RiskMap() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.05 }}
-                className={`glass glass-hover relative overflow-hidden p-5 ring-1 ${c.ring}`}
-                style={{ boxShadow: `0 0 32px -14px ${c.glow}` }}
+                className="glass glass-hover relative overflow-hidden p-5"
               >
-                <div className="absolute right-3 top-3 h-2.5 w-2.5 animate-pulse rounded-full" style={{ background: c.glow }} />
+                <div className="absolute right-4 top-4 h-2 w-2 rounded-[2px]" style={{ background: c.glow }} aria-hidden />
                 <p className="text-xs uppercase tracking-wide text-slate-400">{r.region_id}</p>
                 <h3 className="text-lg font-semibold text-white">{r.region_name}</h3>
                 <p className={`mt-2 text-3xl font-bold ${c.text}`}>{r.avg_score?.toFixed(2)}</p>

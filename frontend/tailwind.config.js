@@ -4,6 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        // The one accent. Used on the active thing and nowhere else.
         nhs: {
           blue: "#0072CE",
           dark: "#003087",
@@ -17,47 +18,36 @@ export default {
           red: "#ef4444",
         },
         // Categorical chart series, in fixed order. Validated on the app's
-        // dark chart surface (#0f1527) with the dataviz palette checks:
-        // lightness band, chroma floor, adjacent CVD ΔE ≥ 8, normal-vision
-        // ΔE ≥ 15, contrast ≥ 3:1. Slot 1 is the brand cyan stepped down —
-        // #00C2D1 itself is too light for a 2px line on this surface.
+        // dark chart surface (#0f1527) with the dataviz palette checks.
+        // Slot 1 is the brand cyan stepped down — #00C2D1 itself is too light
+        // for a 2px line on this surface.
         series: {
           1: "#12a5b3",
           2: "#d95926",
           3: "#9085e9",
           4: "#d55181",
         },
+        // Surfaces: a flat, deep page and one panel tone. Depth comes from
+        // hairlines and whitespace, not blur or glow.
         ink: {
-          900: "#070b1a",
-          800: "#0b1226",
-          700: "#121b35",
-          600: "#1b2647",
+          950: "#070b17",
+          900: "#0a0f1e",
+          800: "#0f1527",
+          700: "#161e33",
+          600: "#1f2941",
         },
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Geist", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 0 40px -10px rgba(0,194,209,0.45)",
-        card: "0 8px 40px -12px rgba(0,0,0,0.6)",
+        // Kept for a single use: lifting a floating element (tooltip) off the page.
+        card: "0 12px 40px -16px rgba(0,0,0,0.7)",
       },
       keyframes: {
-        aurora: {
-          "0%,100%": { transform: "translate(0,0) scale(1)", opacity: "0.55" },
-          "50%": { transform: "translate(-6%,4%) scale(1.15)", opacity: "0.8" },
-        },
-        float: {
-          "0%,100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-8px)" },
-        },
-        shimmer: {
-          "100%": { transform: "translateX(100%)" },
-        },
+        shimmer: { "100%": { transform: "translateX(100%)" } },
       },
       animation: {
-        aurora: "aurora 18s ease-in-out infinite",
-        "aurora-slow": "aurora 26s ease-in-out infinite",
-        float: "float 6s ease-in-out infinite",
         shimmer: "shimmer 1.6s infinite",
       },
     },

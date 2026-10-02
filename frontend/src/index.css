@@ -16,7 +16,7 @@
   --series-2: #d95926;
   --series-3: #9085e9;
   --series-4: #d55181;
-  --series-actual: #94a3b8; /* published / observed values: neutral ink, never a hue */
+  --series-actual: #94a3b8;
 }
 
 html,
@@ -25,12 +25,13 @@ body,
   height: 100%;
 }
 
+/* A flat, deep surface. No aurora, no grid texture, no blur: depth comes
+   from hairlines and whitespace, so the numbers are the brightest things on
+   the page. */
 body {
   @apply bg-ink-900 text-slate-200 font-sans antialiased;
   margin: 0;
-  background-image:
-    radial-gradient(1200px 600px at 80% -10%, rgba(0, 114, 206, 0.18), transparent 60%),
-    radial-gradient(900px 500px at -10% 20%, rgba(0, 194, 209, 0.12), transparent 55%);
+  font-feature-settings: "ss01", "cv11";
 }
 
 /* Keyboard users get the same affordance pointer users get from hover. */
@@ -39,25 +40,35 @@ body {
   outline-offset: 2px;
   border-radius: 0.5rem;
 }
-button:focus-visible,
-a:focus-visible,
-select:focus-visible,
-input:focus-visible {
-  box-shadow: 0 0 0 3px rgba(0, 194, 209, 0.25);
-}
 
-/* Glassmorphism surface */
+/* Panel. The class name is kept so every page keeps working; the look is
+   flat: one tone off the page, a hairline, no shadow, no blur. */
 .glass {
-  @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-card;
+  @apply rounded-xl border border-white/[0.08] bg-ink-800;
 }
-
 .glass-hover {
-  @apply transition-all duration-300 hover:border-nhs-cyan/40 hover:bg-white/[0.06] hover:shadow-glow;
+  @apply transition-colors duration-200 hover:border-white/[0.16];
 }
 
-/* Small-caps eyebrow above a title or section. */
+/* Type scale helpers. Hierarchy comes from these, not from boxes. */
 .eyebrow {
-  @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400;
+  @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500;
+}
+/* A hero figure: proportional numerals, tight tracking, bright ink. */
+.numeral {
+  font-variant-numeric: proportional-nums;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: #fff;
+}
+/* Columns of numbers align; nothing else uses tabular figures. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kept for compatibility; gradient text is gone. */
+.text-gradient {
+  color: #fff;
 }
 
 /* Thin scrollbars */
@@ -72,26 +83,14 @@ input:focus-visible {
   @apply bg-white/20;
 }
 
-.text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-nhs-cyan via-sky-300 to-nhs-blue;
-}
-
 /* Hold the previous render while data refetches: no skeleton flash, no jump. */
 .is-refetching {
   opacity: 0.6;
   transition: opacity 200ms ease;
 }
 
-/* Respect the OS motion preference: the aurora, floating icon, shimmer and
-   page transitions are decoration, and decoration must not move for people
-   who have asked it not to. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-aurora,
-  .animate-aurora-slow,
-  .animate-float,
-  .animate-shimmer,
-  .animate-pulse,
-  .animate-ping {
+  .animate-shimmer {
     animation: none !important;
   }
   *,

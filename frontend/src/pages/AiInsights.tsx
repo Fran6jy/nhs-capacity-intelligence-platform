@@ -117,8 +117,8 @@ export default function AiInsights() {
           {msgs.length === 0 && (
             <div className="grid h-full place-items-center">
               <div className="text-center">
-                <div className="mx-auto mb-4 grid h-14 w-14 animate-float place-items-center rounded-2xl bg-gradient-to-br from-nhs-blue to-nhs-cyan shadow-glow">
-                  <Sparkles className="h-7 w-7 text-white" />
+                <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-lg border border-white/10 text-slate-300">
+                  <Sparkles className="h-6 w-6" />
                 </div>
                 <p className="text-slate-300">Ask about demand, risk, forecasts or workforce.</p>
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -138,7 +138,7 @@ export default function AiInsights() {
 
           {msgs.map((m, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-              <div className={m.role === "user" ? "max-w-[80%] rounded-2xl rounded-br-sm bg-nhs-blue/20 px-4 py-2.5 text-slate-100 ring-1 ring-nhs-blue/30" : "max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] px-4 py-3 ring-1 ring-white/10"}>
+              <div className={m.role === "user" ? "max-w-[80%] rounded-xl rounded-br-sm bg-ink-700 px-4 py-2.5 text-slate-100 ring-1 ring-white/10" : "max-w-[85%] rounded-xl rounded-bl-sm bg-white/[0.04] px-4 py-3 ring-1 ring-white/10"}>
                 {m.role === "user" ? (
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
                 ) : (
@@ -161,7 +161,7 @@ export default function AiInsights() {
 
           {ask.isPending && (
             <div className="flex justify-start">
-              <div className="rounded-2xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/10">
+              <div className="rounded-xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/10">
                 <Spinner label="Querying warehouse & reasoning…" />
               </div>
             </div>
@@ -169,7 +169,7 @@ export default function AiInsights() {
         </div>
 
         {/* input */}
-        <div className="mt-4 flex items-center gap-2 rounded-2xl border border-white/10 bg-ink-800/60 p-2">
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-ink-900 p-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -180,7 +180,7 @@ export default function AiInsights() {
           <button
             onClick={() => submit(input)}
             disabled={ask.isPending || !input.trim()}
-            className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-nhs-blue to-nhs-cyan text-white shadow-glow transition disabled:opacity-40"
+            className="grid h-10 w-10 place-items-center rounded-xl bg-nhs-cyan text-ink-900 transition disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
           </button>

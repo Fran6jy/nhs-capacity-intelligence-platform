@@ -12,16 +12,16 @@ const n = (v: number) => v.toLocaleString("en-GB");
 
 /** A published figure. Proportional figures: this is a hero value, not a column. */
 function RealTile({
-  label, value, unit, sub, emphasis, delay,
-}: { label: string; value: string; unit?: string; sub: string; emphasis?: boolean; delay: number }) {
+  label, value, unit, sub, emphasis, delay, className,
+}: { label: string; value: string; unit?: string; sub: string; emphasis?: boolean; delay: number; className?: string }) {
   return (
-    <GlassCard delay={delay} className="!p-4 ring-1 ring-risk-green/20 sm:!p-5">
+    <GlassCard delay={delay} className={`!p-4 sm:!p-5 ${className ?? ""}`}>
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-2 font-bold text-white ${emphasis ? "text-3xl" : "text-2xl sm:text-3xl"}`}>
+      <p className={`numeral mt-3 leading-none ${emphasis ? "text-5xl sm:text-6xl" : "text-3xl sm:text-4xl"}`}>
         {value}
-        {unit && <span className="ml-0.5 text-lg font-medium text-slate-400">{unit}</span>}
+        {unit && <span className="ml-1 text-lg font-medium text-slate-400">{unit}</span>}
       </p>
-      <p className="mt-1 text-xs text-slate-400">{sub}</p>
+      <p className="mt-2 text-xs leading-relaxed text-slate-400">{sub}</p>
     </GlassCard>
   );
 }
@@ -66,18 +66,18 @@ export default function Overview() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-6">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className={`h-28 ${i === 0 ? "col-span-2" : ""}`} />)}
         </div>
       ) : !hasReal ? (
         <EmptyState icon={Database} title="Published NHS data not loaded"
                     hint={<>Run <code className="text-nhs-cyan">scripts/ingest_nhs_real.py</code> from a normal network connection.</>} />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-6">
           {rttNow && (
             <>
               <RealTile emphasis delay={0.02} label="RTT waiting list" value={n(rttNow.total_waiting)}
-                        sub="Incomplete pathways, England" />
+                        sub="Incomplete pathways, England" className="col-span-2" />
               <RealTile delay={0.06} label="Seen within 18 weeks" value={String(rttNow.within_18_weeks_pct)} unit="%"
                         sub={`Standard is 92% · ${n(rttNow.over_18_weeks)} waiting longer`} />
               <RealTile delay={0.1} label="Waiting over a year" value={n(rttNow.over_52_weeks)}
