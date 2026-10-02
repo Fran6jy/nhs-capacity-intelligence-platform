@@ -61,3 +61,5 @@ htmlcov/
 # mypy
 .mypy_cache/
 .ruff_cache/
+.vercel
+.env*

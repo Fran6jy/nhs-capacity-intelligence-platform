@@ -175,7 +175,7 @@ def risk_regional() -> list[dict]:
 # --------------------------------------------------------------------------- #
 @app.get("/api/forecasts", tags=["forecasts"])
 def forecasts(
-    target: str | None = Query(None, description="bed_occupancy | waiting_time | ae_demand | workforce_demand"),
+    target: str | None = Query(None, description="bed_occupancy | waiting_time | ae_demand | vacancy_rate"),
     horizon: int | None = Query(None),
 ) -> list[dict]:
     sql = "SELECT * FROM v_forecast_long WHERE 1=1"

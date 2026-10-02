@@ -19,8 +19,6 @@ ignore_missing_imports = true
 # grow. Clearing an entry means deleting it here, not adding an ignore comment.
 [[tool.mypy.overrides]]
 module = [
-    "src.models.bed_occupancy",
-    "src.models.waiting_time",
     "src.models.validation",
     "src.llm.recommender",
     "src.llm.agents",

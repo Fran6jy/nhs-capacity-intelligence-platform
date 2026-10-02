@@ -18,7 +18,7 @@ const TARGETS = [
   { id: "bed_occupancy", label: "Bed occupancy" },
   { id: "ae_demand", label: "A&E demand" },
   { id: "waiting_time", label: "Waiting time" },
-  { id: "workforce_demand", label: "Workforce" },
+  { id: "vacancy_rate", label: "Vacancy rate" },
 ];
 const HORIZONS = [30, 60, 90];
 
