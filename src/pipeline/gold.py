@@ -10,6 +10,7 @@ import duckdb
 import pandas as pd
 
 from src.config import settings
+from src.pipeline import contracts
 from src.pipeline.features import add_all, regional_zscore
 from src.utils.io import execute_sql_script, read_parquet
 from src.utils.logging import get_logger
@@ -33,7 +34,9 @@ FACT_COLUMNS = [
 # --------------------------------------------------------------------------- #
 
 def _read(name: str) -> pd.DataFrame:
-    return read_parquet(settings.silver_path / f"{name}.parquet")
+    df = read_parquet(settings.silver_path / f"{name}.parquet")
+    schema = contracts.SILVER_SCHEMAS.get(name)
+    return contracts.validate(df, schema) if schema is not None and not df.empty else df
 
 
 # --------------------------------------------------------------------------- #
@@ -159,6 +162,13 @@ def run(warehouse_path: Path | None = None) -> Path:
     fact = add_all(fact, target="waiting_list_size")
     fact = regional_zscore(fact, "bed_occupancy_pct")
     fact = regional_zscore(fact, "median_wait_days")
+
+    # The fact is about to become the system of record: assert its contract
+    # and its integrity against the dimensions before a single row is written.
+    fact = contracts.validate(fact[FACT_COLUMNS], contracts.GOLD_FACT)
+    contracts.validate_fact_integrity(
+        fact, _read("dim_hospital"), _read("dim_specialty"), _read("dim_region")
+    )
 
     con.execute("DELETE FROM hospital_activity_fact")
     con.register("df_fact", fact[FACT_COLUMNS])
